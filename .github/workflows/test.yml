@@ -18,16 +18,10 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 0
 
-    - name: Install Lua
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y lua5.4 liblua5.4-dev
-
-    # - name: Install LuaRocks
-    #   run: |
-    #     sudo apt-get install -y luarocks
-
     - name: Run tests
-      run: |
-        ./test.sh
+      run: docker compose run --rm -T test
 
+    # Runs even when the tests fail, so one push reports both.
+    - name: Run checks
+      if: success() || failure()
+      run: docker compose run --rm -T check

@@ -1,0 +1,342 @@
+RollForSoftRes = RollForSoftRes or {}
+local sr = RollForSoftRes
+
+if sr.SoftResListWidgets then return end
+
+-- Core's shared helpers. RollFor is guaranteed to be loaded: the TOC declares it as a
+-- dependency, so the client refuses to load this addon without it.
+local m = RollFor
+
+-- The soft-res list's header and row widgets.
+--
+-- FrameBuilder resolves a line by looking its type up in the gui_elements table, so an extension
+-- adding line types is a matter of writing keys into that table -- see PendingLootWidgets and
+-- RoundRobinWidgets, which do the same. Registered during on_enable, before any window is built.
+
+local M = {}
+
+local line_height = 16
+local text_color = { 1, 1, 1 }
+
+-- Columns shared by the header and the rows, so the headings sit over their cells. Each is as wide
+-- as the widest thing in it -- measured by the window over the whole list and handed to every line
+-- of a redraw alike (SoftResListWidths) -- or as its heading and sort arrow, if that is wider.
+-- Every line of a redraw therefore comes out the same width, which is what ListPopup's centring
+-- needs to keep the columns lined up.
+local column_gap = 16
+
+-- The roll count hangs left of the item link, in a gutter at the start of the item column, so every
+-- link -- and the Item heading above them -- starts at the same x whether it has a count or not.
+local count_gap = 3
+
+local columns = {
+  { key = "player", title = "Player" },
+  { key = "item", title = "Item" },
+  { key = "boss", title = "Boss" }
+}
+
+-- The checkbox above the headings, and the space between the two. Smaller than core's checkbox,
+-- which is sized for an options page: this one sits over a list of small print and is set in the
+-- same small font as the headings. `checkbox_x` nudges it left of the headings' edge and
+-- `checkbox_y` up, without moving the headings.
+local checkbox_size = 14
+local checkbox_label_gap = 3
+local checkbox_gap = 4
+local checkbox_x = -8
+local checkbox_y = 2
+local checkbox_text = "Show players not in the group"
+
+-- Blizzard's own sort arrow, at the size and with the flip the auction house uses
+-- (SortButton_UpdateArrow in Blizzard_AuctionUI).
+local sort_arrow_texture = "Interface\\Buttons\\UI-SortArrow"
+local sort_arrow_width = 9
+local sort_arrow_height = 8
+local sort_arrow_gap = 3
+
+-- The tint behind a heading or a row under the mouse. Drawn a little past the sides, since the
+-- text sits flush against the left edge; the column gap leaves room for that. Top and bottom stay
+-- on the line's own edges.
+local highlight_texture = "Interface\\Buttons\\WHITE8x8"
+local highlight_color = { 1, 1, 1, 0.12 }
+local highlight_overhang = 2
+
+-- A row's highlight reaches further out at both ends, where there is no neighbouring column to
+-- stop at. The outer edges of the Player and Boss headings' highlights do too, so they line up with
+-- the rows' below them.
+local row_highlight_overhang = 6
+
+-- The headings' line is always faintly tinted, to set it apart from the rows. Fainter than a
+-- highlight, which still shows on top of it.
+local heading_row_color = { 1, 1, 1, 0.06 }
+
+-- A font string nobody sees, in the font every cell uses, for measuring text before it is drawn.
+local measure
+
+-- How wide `text` draws in the list's font. Colour codes and a link's hyperlink wrapper take no
+-- room, so a coloured name or an item link measures as what the player sees.
+---@param text string
+---@return number
+function M.text_width( text )
+  if not measure then
+    local frame = m.api.CreateFrame( "Frame" )
+    frame:Hide()
+    measure = frame:CreateFontString( nil, "ARTWORK", "GameFontNormalSmall" )
+  end
+
+  measure:SetText( text )
+
+  return measure:GetStringWidth()
+end
+
+---@class SoftResListColumnLayout
+---@field x number
+---@field width number
+---@field inset number -- where the heading and the content start, from the column's left edge
+
+---@class SoftResListLayout
+---@field player SoftResListColumnLayout
+---@field item SoftResListColumnLayout
+---@field boss SoftResListColumnLayout
+---@field width number
+
+-- Where each column goes, given how wide their contents measured. Worked out the same way for the
+-- header and for every row, which is what keeps them lined up.
+---@param widths SoftResListWidths
+---@return SoftResListLayout
+local function layout( widths )
+  local result = {}
+  local x = 0
+
+  for _, column in ipairs( columns ) do
+    local inset = column.key == "item" and widths.count > 0 and widths.count + count_gap or 0
+    local heading = M.text_width( column.title ) + sort_arrow_gap + sort_arrow_width
+    local width = inset + math.max( widths[ column.key ], heading )
+
+    result[ column.key ] = { x = x, width = width, inset = inset }
+    x = x + width + column_gap
+  end
+
+  -- The checkbox sits over the columns, so it is what sets the width when the columns are narrower.
+  local checkbox_width = checkbox_x + checkbox_size + checkbox_label_gap + M.text_width( checkbox_text )
+  result.width = math.max( x - column_gap, checkbox_width )
+
+  return result
+end
+
+---@param parent table
+local function add_highlight( parent )
+  local texture = parent:CreateTexture( nil, "BACKGROUND" )
+  texture:SetTexture( highlight_texture )
+  texture:SetVertexColor( unpack( highlight_color ) )
+  texture:ClearAllPoints()
+  texture:SetPoint( "TOPLEFT", parent, "TOPLEFT", -row_highlight_overhang, 0 )
+  texture:SetPoint( "BOTTOMRIGHT", parent, "BOTTOMRIGHT", row_highlight_overhang, 0 )
+
+  return texture
+end
+
+-- Core's checkbox (GuiElements.checkbox) at the list's own scale.
+---@param parent table
+local function checkbox( parent )
+  local container = m.api.CreateFrame( "Frame", nil, parent )
+  local button = m.api.CreateFrame( "CheckButton", nil, container, "UICheckButtonTemplate" )
+  button:SetWidth( checkbox_size )
+  button:SetHeight( checkbox_size )
+  button:SetPoint( "LEFT", container, "LEFT", 0, 0 )
+
+  local label = container:CreateFontString( nil, "ARTWORK", "GameFontNormalSmall" )
+  label:SetTextColor( unpack( text_color ) )
+  label:SetPoint( "LEFT", button, "RIGHT", checkbox_label_gap, 0 )
+
+  container:SetHeight( checkbox_size )
+
+  container.SetText = function( _, text )
+    label:SetText( text )
+    container:SetWidth( checkbox_size + checkbox_label_gap + label:GetWidth() )
+  end
+
+  container.SetChecked = function( _, checked )
+    button:SetChecked( checked and true or false )
+  end
+
+  button:SetScript( "OnClick", function()
+    if container.on_click then container.on_click( button:GetChecked() and true or false ) end
+  end )
+
+  return container
+end
+
+-- The line above the list that is never scrolled: the checkbox, then a heading per column.
+-- Clicking a heading asks the window to sort by it.
+---@param parent table
+function M.softres_list_header( parent )
+  local container = m.api.CreateFrame( "Frame", nil, parent )
+  container:SetHeight( checkbox_size + checkbox_gap + line_height )
+
+  local show_absent = checkbox( container )
+  show_absent:SetPoint( "TOPLEFT", container, "TOPLEFT", checkbox_x, checkbox_y )
+  show_absent:SetText( checkbox_text )
+
+  show_absent.on_click = function( checked )
+    if container.on_toggle_absent then container.on_toggle_absent( checked ) end
+  end
+
+  -- Spans the headings' line only, not the checkbox above it, out to where the rows' highlights
+  -- reach.
+  local heading_row = container:CreateTexture( nil, "BACKGROUND" )
+  heading_row:SetTexture( highlight_texture )
+  heading_row:SetVertexColor( unpack( heading_row_color ) )
+  heading_row:ClearAllPoints()
+  heading_row:SetPoint( "BOTTOMLEFT", container, "BOTTOMLEFT", -row_highlight_overhang, 0 )
+  heading_row:SetPoint( "TOPRIGHT", container, "BOTTOMRIGHT", row_highlight_overhang, line_height )
+
+  local headings = {}
+
+  for i, column in ipairs( columns ) do
+    local heading = m.api.CreateFrame( "Button", nil, container )
+    local left_overhang = i == 1 and row_highlight_overhang or highlight_overhang
+    local right_overhang = i == #columns and row_highlight_overhang or highlight_overhang
+    heading:SetHeight( line_height )
+
+    -- The Button's own highlight layer: the client shows and hides it on hover.
+    heading:SetHighlightTexture( highlight_texture, "BLEND" )
+    local highlight = heading:GetHighlightTexture()
+    highlight:SetVertexColor( unpack( highlight_color ) )
+    highlight:ClearAllPoints()
+    highlight:SetPoint( "TOPLEFT", heading, "TOPLEFT", -left_overhang, 0 )
+    highlight:SetPoint( "BOTTOMRIGHT", heading, "BOTTOMRIGHT", right_overhang, 0 )
+
+    local label = heading:CreateFontString( nil, "ARTWORK", "GameFontNormalSmall" )
+    label:SetText( m.colors.hl( column.title ) )
+
+    local arrow = heading:CreateTexture( nil, "ARTWORK" )
+    arrow:SetTexture( sort_arrow_texture )
+    arrow:SetWidth( sort_arrow_width )
+    arrow:SetHeight( sort_arrow_height )
+    arrow:SetPoint( "LEFT", label, "RIGHT", sort_arrow_gap, 0 )
+
+    heading:SetScript( "OnClick", function()
+      if container.on_sort then container.on_sort( column.key ) end
+    end )
+
+    headings[ column.key ] = { frame = heading, label = label, arrow = arrow }
+  end
+
+  -- FrameBuilder recycles line frames across refreshes, so every field is written on every call,
+  -- the callbacks and the layout included.
+  container.SetRow = function( _, row )
+    show_absent:SetChecked( row.show_absent )
+    container.on_toggle_absent = row.on_toggle_absent
+    container.on_sort = row.on_sort
+
+    local columns_layout = layout( row.widths )
+    container:SetWidth( columns_layout.width )
+
+    for key, heading in pairs( headings ) do
+      local column = columns_layout[ key ]
+
+      heading.frame:ClearAllPoints()
+      heading.frame:SetPoint( "BOTTOMLEFT", container, "BOTTOMLEFT", column.x, 0 )
+      heading.frame:SetWidth( column.width )
+      heading.label:ClearAllPoints()
+      heading.label:SetPoint( "LEFT", heading.frame, "LEFT", column.inset, 0 )
+
+      if key ~= row.sort_column then
+        heading.arrow:Hide()
+      else
+        if row.sort_ascending then
+          heading.arrow:SetTexCoord( 0, 0.5625, 0, 1 )
+        else
+          heading.arrow:SetTexCoord( 0, 0.5625, 1, 0 )
+        end
+
+        heading.arrow:Show()
+      end
+    end
+  end
+
+  return container
+end
+
+---@param parent table
+---@param justify string?
+local function cell( parent, justify )
+  local text = parent:CreateFontString( nil, "ARTWORK", "GameFontNormalSmall" )
+  text:SetHeight( line_height )
+  text:SetJustifyH( justify or "LEFT" )
+  text:SetTextColor( unpack( text_color ) )
+
+  return text
+end
+
+---@param text table
+---@param parent table
+---@param x number
+---@param width number
+local function place( text, parent, x, width )
+  text:ClearAllPoints()
+  text:SetPoint( "LEFT", parent, "LEFT", x, 0 )
+  text:SetWidth( width )
+end
+
+-- One reservation: player, item, boss. More than one roll shows as 2x in the gutter left of the
+-- item.
+---@param parent table
+function M.softres_list_row( parent )
+  local container = m.api.CreateFrame( "Frame", nil, parent )
+  container:SetHeight( line_height )
+
+  local player = cell( container )
+  local boss = cell( container )
+
+  -- Drawn here rather than by the link, which puts its own count inline and so pushes the name
+  -- right by however wide the count is.
+  local count = cell( container, "RIGHT" )
+
+  -- Core's item link, which brings the tooltip, the ctrl-click dressing room and the shift-click
+  -- chat link.
+  local item = m.GuiElements.item_link( container )
+
+  -- The whole row lights up under the mouse. Polled rather than driven by OnEnter/OnLeave: those
+  -- need the row to take the mouse, and a row that takes the mouse stops the window being dragged
+  -- by it -- and the item link, which does take the mouse, would count as leaving the row.
+  local highlight = add_highlight( container )
+  highlight:Hide()
+
+  container:SetScript( "OnUpdate", function()
+    if m.api.MouseIsOver( container ) then highlight:Show() else highlight:Hide() end
+  end )
+
+  container.SetRow = function( _, row )
+    local columns_layout = layout( row.widths )
+    local item_column = columns_layout.item
+    container:SetWidth( columns_layout.width )
+
+    place( player, container, columns_layout.player.x, columns_layout.player.width )
+    place( count, container, item_column.x, row.widths.count )
+    place( boss, container, columns_layout.boss.x, columns_layout.boss.width )
+    item:ClearAllPoints()
+    item:SetPoint( "LEFT", container, "LEFT", item_column.x + item_column.inset, 0 )
+
+    player:SetText( row.player )
+    count:SetText( row.count or "" )
+    item:SetItem( { link = row.item_link }, row.item_tooltip_link )
+    boss:SetText( row.boss )
+  end
+
+  -- Nothing emits a header row for this list, but ListPopup calls this on every row it draws.
+  container.SetHeader = function() end
+
+  return container
+end
+
+-- Written into core's table, which is what FrameBuilder resolves lines against. Called from
+-- on_enable, before anything builds a window.
+---@param gui_elements table -- ctx.gui_elements
+function M.register( gui_elements )
+  gui_elements[ sr.SoftResListContentTransformer.header_type ] = M.softres_list_header
+  gui_elements[ sr.SoftResListContentTransformer.row_type ] = M.softres_list_row
+end
+
+sr.SoftResListWidgets = M
+return M

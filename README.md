@@ -1,15 +1,13 @@
 # RollFor
-A World of Warcraft (2.5.2) addon that manages rolling for items.  
+The **official** repository of RollFor, a World of Warcraft (2.5.6) addon that manages rolling for items.
 
 ## Demo
 
-### NEW
+### Classic Look
 
 **Classic Look**
 
 <img src="docs/classic-look.png?v=2">
-
-Enable: `/rf config classic-look`
 
 See the classic-look in action: https://youtu.be/G37j5XXBKxs
 
@@ -81,6 +79,8 @@ Disable this feature with:
 ---
 
 ### Soft res integration
+ * Requires a soft-res source addon - **RollForSoftResIt** is the one for https://softres.it,
+   and it ships separately.
  * Integrates with https://softres.it via Gargul Export.
  * Minimap icon shows soft res status and who did not soft res.
  * Fully automated (shows who soft ressed, only accepts rolls from players who SR).
@@ -143,19 +143,26 @@ instead of `/rf`. "arf" stands for "All Roll For".
 
 ## Soft-Res setup
 
-1. Create a Soft Res list at https://softres.it.  
-2. Ask raiders to add their items.
-3. When ready, lock the raid and click on the **Gargul Export** button.
+The import itself lives in a separate addon, **RollForSoftResIt**, which registers itself
+with RollFor as the soft-res source. RollFor keeps the rolling, the loot frame and the
+announcements; what a softres.it string is, the `/sr` window and the `/sr`, `/src`, `/srs`
+and `/sro` commands are all in there. Without a soft-res source installed RollFor still
+works -- it just has no soft-res, and says so once at login.
+
+1. Install **RollForSoftResIt** next to RollFor in `Interface/AddOns`.
+2. Create a Soft Res list at https://softres.it.  
+3. Ask raiders to add their items.
+4. When ready, lock the raid and click on the **Gargul Export** button.
 
 <img src="docs/raidres-export.jpg" alt="Raidres export" style="width:720px;height:350">
 
-4. Click on **Copy RollFor data to clipboard** buton.
+5. Click on **Copy RollFor data to clipboard** buton.
 
 <img src="docs/raidres-copy-to-clipboard.jpg" alt="Raidres copy to clipboard" style="width:720px;height:350">
 
-5. Click on the minimap icon or type `/sr`.  
-6. Paste the data into the window.  
-7. Click **Import!**.  
+6. Click on the minimap icon or type `/sr`.  
+7. Paste the data into the window.  
+8. Click **Import!**.  
 
 <img src="docs/softres-import.jpg" alt="softres-import" style="width:720px;height:350">
 
@@ -240,7 +247,7 @@ Click on the minimap icon and click **Clear** or type:
 ## Shoutouts
 
 Thank you to:
-  * **Turtle WoW devs** for amazing content. You cunts should switch to a better client.  
+  * **Turtle WoW devs** for amazing content. RIP
   * **Itamedruids** for *Raidres* and adding the export function. Love your work.  
   * My fellow raiders (there's too many to mention).  
   * All bug reporters, testers and feature suggesters.  
@@ -250,9 +257,4 @@ Thank you to:
 
 The best way to contact me is to message me on Discord.  
 Username: **Obszczymucha**  
-
-My character **Jogobobek** will no longer be available on Turtle WoW.  
-I'm switching to Netherwing 3.0, perhaps under a different name :P  
-
-Thanks Turtle for fun.
 
