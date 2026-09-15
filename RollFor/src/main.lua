@@ -346,7 +346,10 @@ local function create_components()
       -- you call is the declaration; there is no field to set wrongly.
       roll_modifier = {
         delta = m.RollingLogicUtils.register_delta,
-        adjust = m.RollingLogicUtils.register_adjust
+        adjust = m.RollingLogicUtils.register_adjust,
+        -- What the deltas will add before anybody rolls, for an extension that shows it.
+        -- Added in API 7.
+        preview = m.RollingLogicUtils.preview_total
       },
       minimap = {
         register = function( contribution ) table.insert( M.minimap_contributions, contribution ) end,

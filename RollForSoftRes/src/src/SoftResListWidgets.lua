@@ -297,6 +297,10 @@ function M.softres_list_row( parent )
   -- chat link.
   local item = m.GuiElements.item_link( container )
 
+  -- What modifiers add to the player's rolls, right after the link. Its own text rather than
+  -- part of the link's, which is what a shift-click pastes into chat.
+  local adjustment = cell( container )
+
   -- The whole row lights up under the mouse. Polled rather than driven by OnEnter/OnLeave: those
   -- need the row to take the mouse, and a row that takes the mouse stops the window being dragged
   -- by it -- and the item link, which does take the mouse, would count as leaving the row.
@@ -317,10 +321,13 @@ function M.softres_list_row( parent )
     place( boss, container, columns_layout.boss.x, columns_layout.boss.width )
     item:ClearAllPoints()
     item:SetPoint( "LEFT", container, "LEFT", item_column.x + item_column.inset, 0 )
+    adjustment:ClearAllPoints()
+    adjustment:SetPoint( "LEFT", item, "RIGHT", 0, 0 )
 
     player:SetText( row.player )
     count:SetText( row.count or "" )
     item:SetItem( { link = row.item_link }, row.item_tooltip_link )
+    adjustment:SetText( row.adjustment or "" )
     boss:SetText( row.boss )
   end
 

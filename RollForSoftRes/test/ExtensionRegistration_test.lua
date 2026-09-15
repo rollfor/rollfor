@@ -80,8 +80,9 @@ function RegistrationSpec:should_have_registered_itself_on_load()
   eq( found.incompatible, nil )
 end
 
--- The context this addon uses -- softres_source, softres_tap, minimap -- arrived in v2.
--- Declaring v1 would be a lie that core would believe.
+-- The context this addon uses -- softres_source, softres_tap, minimap -- arrived in v2, and
+-- roll_modifier.preview, which the list window reads, in v7. Declaring less would be a lie that
+-- core would believe.
 function RegistrationSpec:should_declare_the_api_version_it_actually_needs()
   local found
 
@@ -89,7 +90,7 @@ function RegistrationSpec:should_declare_the_api_version_it_actually_needs()
     if extension.name == "softres" then found = extension end
   end
 
-  eq( found.api_version, 2 )
+  eq( found.api_version, 7 )
   eq( found.api_version <= Extensions.API_VERSION, true )
 end
 

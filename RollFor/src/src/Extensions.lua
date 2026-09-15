@@ -31,7 +31,10 @@ local function hl( text ) return m.colors.hl( text ) end
 -- Also 6: handing items out automatically is an award_policy rather than a loot handler that
 -- calls GiveMasterLoot itself, and RollForAutoLoot.claims is gone with no replacement --
 -- loot_claim answers the same question, about the slot that was actually taken.
-M.API_VERSION = 6
+--
+-- 7: roll_modifier.preview, so an extension can show what modifiers will add to a player's
+-- roll without a roll to apply them to.
+M.API_VERSION = 7
 
 -- What an extension is allowed to see of RollFor. Built per extension by main.lua and
 -- handed to both phases. This is the surface we commit to across versions, so it stays
@@ -73,7 +76,10 @@ M.API_VERSION = 6
 -- `delta` is for a bonus knowable from the player and the item alone, which is what lets
 -- core announce it before anybody rolls. `adjust` also sees the roll and the running total
 -- -- what a cap or a percentage needs -- and cannot be previewed. See RollingLogicUtils.
----@field roll_modifier { delta: fun( spec: RollDeltaSpec ): boolean, adjust: fun( spec: RollAdjustSpec ): boolean }
+--
+-- `preview` is what every `delta` taking part in the round adds up to for this player and
+-- item, nil when nothing adds anything. Added in API 7.
+---@field roll_modifier { delta: fun( spec: RollDeltaSpec ): boolean, adjust: fun( spec: RollAdjustSpec ): boolean, preview: fun( player: RollingPlayer, item: Item, strategy: RollingStrategyType ): number? }
 ---@field minimap { register: fun( c: MinimapContribution ), refresh: fun() }
 ---@field on_group_changed fun( callback: fun() )
 ---@field on_lockout_reset fun( callback: fun() )

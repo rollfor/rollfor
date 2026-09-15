@@ -37,6 +37,7 @@ M.header_type = "softres_list_header"
 ---@field item_link string -- a placeholder while the client doesn't have the item, or a note for a
 --- player who reserved nothing
 ---@field item_tooltip_link TooltipItemLink?
+---@field adjustment string? -- " +30", drawn right after the item link; nil when no modifier adds anything
 ---@field boss string -- already coloured
 
 -- How wide the widest entry in each column draws, over the whole list. Every line of a redraw gets
@@ -82,6 +83,7 @@ function M.new()
         item_link = row.item_link,
         item_tooltip_link = row.item_tooltip_link,
         count = row.count,
+        adjustment = row.adjustment,
         boss = row.boss,
         widths = data.widths,
         padding = row_gap

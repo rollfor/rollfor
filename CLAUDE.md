@@ -64,3 +64,23 @@ Neither check catches:
   test file runs as its own process, but worth fixing.
 - **Anything visual.** Frame layout, dropdowns and options pages need a human in
   the client.
+
+
+## Developing external extensions
+An external extension lives in its own repo and references this one as a git
+submodule pinned to a commit. When it needs something RollFor doesn't have yet:
+
+1. Make the change here, with its tests, and commit it.
+2. Point the extension's submodule at that commit, fetched straight from the
+   local clone; it doesn't have to be pushed yet:
+
+       git -C <submodule> fetch <local rollfor clone> <sha>
+       git -C <submodule> checkout <sha>
+
+3. Test the extension against the real RollFor in the submodule. Never stub
+   RollFor to stand in for a change the submodule doesn't have: a test that
+   fails on the old commit and passes on the new one is the point.
+4. Run the extension's tests and checks.
+5. Commit the extension's change and the submodule bump together.
+6. Push RollFor before the extension. Until then its submodule names a commit a
+   fresh clone or CI can't fetch.

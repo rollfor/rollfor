@@ -93,6 +93,19 @@ local group_roster = {
   end
 }
 
+-- What modifiers add, as bonuses[ player ][ item_id ], for whichever spec sets it. Asked about the
+-- soft-res round only, the way the list asks.
+local bonuses = {}
+local asked_rounds = {}
+
+---@param player RollingPlayer
+---@param item Item
+---@param strategy RollingStrategyType
+local function preview( player, item, strategy )
+  asked_rounds[ strategy ] = true
+  return bonuses[ player.name ] and bonuses[ player.name ][ item.id ]
+end
+
 ---@param reservations table[]
 ---@param cached boolean?
 local function window( reservations, cached )
@@ -117,7 +130,7 @@ local function window( reservations, cached )
 
       return content
     end
-  }, softres( reservations ), group_roster, ace_timer, text_width, function() return 15 end )
+  }, softres( reservations ), group_roster, ace_timer, text_width, function() return 15 end, preview )
 
   frame.db = db
   frame.model = function() return model end
@@ -600,6 +613,50 @@ function WidthSpec:should_hand_the_same_widths_to_the_header_and_every_row()
   for _, row in ipairs( frame.lines( Transformer.row_type ) ) do
     eq( row.widths, widths )
   end
+end
+
+AdjustmentSpec = {}
+
+function AdjustmentSpec:should_show_what_modifiers_add_after_the_item()
+  bonuses = { Psikutas = { [ TSUNAMI ] = 30 } }
+  local frame = window( { { TSUNAMI, "Psikutas" }, { FATHOMSTONE, "Psikutas" } } )
+
+  frame.show()
+
+  local rows = frame.reservations()
+  eq( rows[ 1 ].adjustment, nil ) -- Fathomstone
+  eq( rows[ 2 ].adjustment, m.colors.white( " +30" ) )
+  bonuses = {}
+end
+
+function AdjustmentSpec:should_show_a_penalty_with_a_minus()
+  bonuses = { Psikutas = { [ TSUNAMI ] = -5 } }
+  local frame = window( { { TSUNAMI, "Psikutas" } } )
+
+  frame.show()
+
+  eq( frame.reservations()[ 1 ].adjustment, m.colors.white( " -5" ) )
+  bonuses = {}
+end
+
+function AdjustmentSpec:should_ask_about_the_soft_res_round()
+  asked_rounds = {}
+  local frame = window( { { TSUNAMI, "Psikutas" } } )
+
+  frame.show()
+
+  eq( asked_rounds, { [ RollFor.Types.RollingStrategy.SoftResRoll ] = true } )
+end
+
+-- "[Tsunami Talisman]" is 18 characters and " +30" another 4.
+function AdjustmentSpec:should_measure_the_item_column_with_the_adjustment()
+  bonuses = { Psikutas = { [ TSUNAMI ] = 30 } }
+  local frame = window( { { TSUNAMI, "Psikutas" } } )
+
+  frame.show()
+
+  eq( frame.model().widths.item, 22 )
+  bonuses = {}
 end
 
 UncachedSpec = {}

@@ -596,6 +596,22 @@ function SoftResIntegrationSpec:should_only_process_rolls_from_players_who_soft_
   )
 end
 
+SoftResReservedNameSpec = {}
+
+-- Sälvatrucha reserved as Salvatrucha and was auto-matched. RollFor knows them as Sälvatrucha from
+-- then on; an addon reading the document still has to find them as Salvatrucha.
+function SoftResReservedNameSpec:should_give_back_the_name_a_matched_player_reserved_under()
+  -- Given
+  player( "Psikutas" )
+  is_in_raid( leader( "Psikutas" ), "Sälvatrucha", "Ponpon" )
+  soft_res( sr( "Psikutas", 123 ), sr( "Salvatrucha", 123 ), sr( "Ponpon", 123 ) )
+
+  -- Then
+  eq( RollForSoftRes.softres_name( "Sälvatrucha" ), "Salvatrucha" )
+  eq( RollForSoftRes.softres_name( "Ponpon" ), "Ponpon" )
+  eq( RollForSoftRes.softres_name( "Obszczymucha" ), "Obszczymucha" )
+end
+
 function SoftResIntegrationSpec:should_stop_rolling_if_player_who_won_still_has_extra_rolls()
   -- Given
   player( "Psikutas" )

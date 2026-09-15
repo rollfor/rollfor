@@ -228,7 +228,8 @@ end
 ---@param ace_timer AceTimer
 ---@param text_width fun( text: string ): number -- how wide text draws in the list's font
 ---@param max_rows fun(): number -- rows shown before the list scrolls; read on every redraw
-function M.new( popup_builder, db, content_transformer, softres, group_roster, ace_timer, text_width, max_rows )
+---@param preview fun( player: RollingPlayer, item: Item, strategy: RollingStrategyType ): number? -- ctx.roll_modifier.preview
+function M.new( popup_builder, db, content_transformer, softres, group_roster, ace_timer, text_width, max_rows, preview )
   ---@type ListPopup
   local list
 
@@ -255,6 +256,7 @@ function M.new( popup_builder, db, content_transformer, softres, group_roster, a
       local item_id = item_data.item_id
       local link = m.fetch_item_link( item_id )
       local boss = m.DropTable.find_boss( item_id ) or trash
+      local item = m.ItemUtils.make_item( item_id, link and m.ItemUtils.get_item_name( link ) or tostring( item_id ), link )
 
       -- Asked for now and drawn as its id until the client has it; the retry below redraws.
       if not link then
@@ -267,12 +269,19 @@ function M.new( popup_builder, db, content_transformer, softres, group_roster, a
         softressing[ string.lower( roller.name ) ] = true
 
         if player or db.show_absent then
+          -- What modifiers will add to the player's rolls on this item, drawn after the link.
+          -- The space is part of the text, so measuring link and adjustment together measures
+          -- the gap as well.
+          local adjustment = preview( roller, item, m.Types.RollingStrategy.SoftResRoll )
+
           table.insert( entries, {
             row = {
               player = player and m.colorize_player_by_class( player.name, player.class ) or m.colors.red( roller.name ),
               item_link = link or m.colors.grey( "item:" .. item_id ),
               item_tooltip_link = link and m.ItemUtils.get_tooltip_link( link ),
-              count = roller.rolls > 1 and string.format( "%dx", roller.rolls ) or nil
+              count = roller.rolls > 1 and string.format( "%dx", roller.rolls ) or nil,
+              adjustment = adjustment and
+                  m.colors.white( string.format( " %s%d", adjustment > 0 and "+" or "-", math.abs( adjustment ) ) ) or nil
             },
             boss = boss,
             keys = {
@@ -330,7 +339,7 @@ function M.new( popup_builder, db, content_transformer, softres, group_roster, a
 
       widen( "player", row.player )
       widen( "count", row.count )
-      widen( "item", row.item_link )
+      widen( "item", row.adjustment and row.item_link .. row.adjustment or row.item_link )
       widen( "boss", row.boss )
 
       table.insert( rows, row )

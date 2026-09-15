@@ -188,6 +188,18 @@ end
 
 M.on_enable = on_enable
 
+-- The name a player reserved under, given the name RollFor knows them by.
+--
+-- A player matched to a different in-game name -- by /sro or the auto-matcher -- reaches rolls,
+-- previews and every window under that in-game name. An addon that reads the imported document
+-- itself knows them only by the name on it, so it asks here to look them up. The name itself
+-- when nothing renamed them, which includes this addon being off: nothing matches then.
+---@param player_name string
+---@return string
+function M.softres_name( player_name )
+  return name_matcher and name_matcher.get_softres_name( player_name ) or player_name
+end
+
 -- The import proper, once the provider's decoding is out of the way.
 ---@param softres_data table
 function M.import_softres_data( softres_data )
@@ -207,7 +219,7 @@ local function on_ready( ctx )
   local list_frame = sr.SoftResListFrame.new(
     ctx.popup_builder(), ctx.db( "list_frame" ), sr.SoftResListContentTransformer.new(),
     ctx.softres_tap( "unfiltered" ), ctx.group_roster, ctx.ace_timer, sr.SoftResListWidgets.text_width,
-    ctx.config[ sr.SoftResListFrame.rows_setting.key ] )
+    ctx.config[ sr.SoftResListFrame.rows_setting.key ], ctx.roll_modifier.preview )
 
   -- The list is read fresh on every redraw, so these only have to say something changed. Group
   -- changes come after on_enable's auto_match, which registered first, so names are matched by
@@ -366,9 +378,10 @@ function M.register()
   return m.Extensions.register( {
     name = "softres",
     title = "SoftRes",
-    -- 2, not Extensions.API_VERSION: this is what the addon was written against, and
-    -- claiming whatever core happens to be at would be a promise it cannot keep.
-    api_version = 2,
+    -- 7, not Extensions.API_VERSION: this is what the addon was written against -- the list
+    -- window reads roll_modifier.preview -- and claiming whatever core happens to be at would
+    -- be a promise it cannot keep.
+    api_version = 7,
     default_enabled = true,
     on_enable = on_enable,
     on_ready = on_ready,
@@ -389,6 +402,9 @@ sr.register = M.register_provider
 sr.providers = M.providers
 sr.provider = M.provider
 sr.clear_providers = M.clear_providers
+
+-- Published for the same reason, to addons that read the imported document: see softres_name.
+sr.softres_name = M.softres_name
 
 -- Registration happens on load, which is the whole point: by the time RollFor builds its
 -- components on PLAYER_LOGIN, the registry already knows about us. Tests that want a
