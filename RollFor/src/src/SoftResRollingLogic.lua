@@ -163,7 +163,7 @@ function M.new(
     local total, adjustments = apply_modifiers( player, item, roll, strategy )
 
     table.insert( rolls, make_roll( player, roll_type_used, total, adjustments ) )
-    controller.roll_was_accepted( player.name, player.class, roll_type_used, total )
+    controller.roll_was_accepted( player.name, player.class, roll_type_used, total, adjustments )
 
     find_winner( State.AfterRoll )
   end

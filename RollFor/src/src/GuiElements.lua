@@ -420,13 +420,53 @@ function M.roll( parent )
   end
 
   frame:deselect()
-  frame:SetScript( "OnEnter", function()
+
+  -- How modifiers arrived at each of the player's rolls, one line per roll. Set by set_cells.
+  ---@type string[]?
+  local breakdowns
+
+  -- The tooltip's first line always uses the big header font, so swap it to the regular
+  -- body font for the first breakdown and put it back afterwards -- the tooltip is shared
+  -- with the rest of the UI.
+  local function set_title_font( font )
+    local title = m.api.GameTooltip.TextLeft1
+    if title then title:SetFontObject( font ) end
+  end
+
+  -- Whether this row is the one currently showing the tooltip. Only the owner puts the
+  -- title font back and hides it: without this, a row that never opened a tooltip would
+  -- close whichever frame's tooltip happens to be up when the mouse crosses it.
+  local showing_tooltip = false
+
+  local function hide_tooltip()
+    if not showing_tooltip then return end
+
+    showing_tooltip = false
+    set_title_font( m.api.GameTooltipHeaderText )
+    m.api.GameTooltip:Hide()
+  end
+
+  frame:SetScript( "OnEnter", function( self )
     hover()
+    if not breakdowns then return end
+
+    m.api.GameTooltip:SetOwner( self, "ANCHOR_CURSOR" )
+    for _, breakdown in ipairs( breakdowns ) do m.api.GameTooltip:AddLine( breakdown, 1, 1, 1 ) end
+
+    set_title_font( m.api.GameTooltipText )
+    showing_tooltip = true
+    m.api.GameTooltip:Show()
   end )
 
   frame:SetScript( "OnLeave", function()
     no_hover()
+    hide_tooltip()
   end )
+
+  -- The popup redraws while the mouse is still over a row, and a row hidden out from under
+  -- the mouse never gets its OnLeave, which would leave the swapped title font on the shared
+  -- tooltip for the rest of the session.
+  frame:SetScript( "OnHide", hide_tooltip )
 
   frame:EnableMouse( true )
 
@@ -448,6 +488,12 @@ function M.roll( parent )
   local roll_type_container = M.create_text_in_container( "Button", frame, roll_type_label_width, "CENTER" )
   roll_type_container:SetPoint( "RIGHT", -(roll_type_zone - roll_type_label_width), 0 )
   frame.roll_type = roll_type_container.inner
+  roll_type_container:EnableMouse( false )
+
+  -- What modifiers add to the player's soft-res rolls, trailing the label: "SR +30".
+  local adjustment_text = M.text( frame )
+  adjustment_text:SetPoint( "LEFT", frame.roll_type, "RIGHT", 0, 0 )
+  adjustment_text:Hide()
 
   frame.cells = {}
 
@@ -465,6 +511,8 @@ function M.roll( parent )
     cell.icon = M.icon( cell, false, pip_size, pip_size )
     cell.icon:SetTexCoord( pip_left, pip_right, pip_top, pip_bottom )
     cell.icon:SetPoint( "CENTER", pip_x_offset, 0 )
+    -- The hover belongs to the whole row, so a cell must not catch the mouse on its way there.
+    cell:EnableMouse( false )
     table.insert( frame.cells, index, cell )
 
     return cell
@@ -492,11 +540,12 @@ function M.roll( parent )
 
   frame.set_name_zone = layout_name
 
-  ---@param cells table[] -- { roll_type = RollType, roll = number? }
+  ---@param cells table[] -- { roll_type = RollType, roll = number?, adjustments = RollAdjustment[]? }
   ---@param cell_count number -- uniform across the popup, so the name column lines up
   ---@param best_index number? -- the player's own best cast roll, rendered at full alpha
   ---@param width number? -- gap between adjacent rolls; defaults to the built-in metric
-  frame.set_cells = function( cells, cell_count, best_index, width )
+  ---@param adjustment number? -- what modifiers add to the player's rolls
+  frame.set_cells = function( cells, cell_count, best_index, width, adjustment )
     local count = getn( cells )
     cell_width = width or roll_cell_width
 
@@ -511,11 +560,18 @@ function M.roll( parent )
     local label_roll_type = cells[ 1 ].roll_type
     frame.roll_type:SetText( m.roll_type_color( label_roll_type, m.roll_type_abbrev( label_roll_type ) ) )
 
+    if adjustment then
+      adjustment_text:SetText( m.colors.white( string.format( "%s%d", adjustment > 0 and "+" or "-", math.abs( adjustment ) ) ) )
+      adjustment_text:Show()
+    else
+      adjustment_text:Hide()
+    end
 
     -- Cells arrive in cast order with the pending ones trailing. On screen the cast rolls
     -- sit against the name and the pending pips fill in to their left, so the numbers form
     -- one block that right-aligns on the name. Cast cells keep their chronological order.
     local ordered, best_slot = {}, nil
+    breakdowns = nil
 
     for i = 1, count do
       if not cells[ i ].roll then table.insert( ordered, cells[ i ] ) end
@@ -538,6 +594,12 @@ function M.roll( parent )
       cell:SetWidth( cell_width )
       cell:ClearAllPoints()
       cell:SetPoint( "LEFT", side_zone - (count - i + 1) * cell_width, 0 )
+
+      -- Only a roll something changed has a breakdown to show.
+      if data.roll and data.adjustments then
+        breakdowns = breakdowns or {}
+        table.insert( breakdowns, m.RollingLogicUtils.decompose( data.roll, data.adjustments ) )
+      end
 
       if data.roll then
         cell.inner:SetText( cell_text( data.roll_type, data.roll ) )
@@ -570,6 +632,8 @@ function M.roll( parent )
       frame.cells[ i ]:Hide()
     end
 
+    adjustment_text:Hide()
+    breakdowns = nil
     roll_container:Show()
     roll_type_container:Show()
     roll_type_container:ClearAllPoints()

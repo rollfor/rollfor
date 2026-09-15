@@ -21,6 +21,8 @@ local S = m.Types.RollingStatus
 ---@field roll_type RollType
 ---@field roll number?
 ---@field ordinal number? -- cast order within the current iteration; absent until the roll is cast
+---@field adjustment number? -- what modifiers add to a soft-res roll, known before it is cast
+---@field adjustments RollAdjustment[]? -- what modifiers made of the cast roll
 
 ---@class RollIteration
 ---@field rolling_strategy RollingStrategyType
@@ -54,7 +56,7 @@ local S = m.Types.RollingStatus
 ---@field rolling_canceled fun()
 ---@field tie fun( required_rolling_players: RollingPlayer[], roll_type: RollType, roll: number )
 ---@field tie_start fun()
----@field add fun( player_name: string, player_class: string, roll_type: RollType, roll: number )
+---@field add fun( player_name: string, player_class: string, roll_type: RollType, roll: number, adjustments: RollAdjustment[]? )
 ---@field add_ignored fun( player_name: string, roll_type: RollType, roll: number, reason: string )
 ---@field get fun(): RollTrackerData, RollIteration
 ---@field tick fun( seconds_left: number )
@@ -79,12 +81,18 @@ function M.new( item_on_roll )
     clear_table( t )
   end
 
-  local function add( player_name, player_class, roll_type, roll )
+  ---@param player RollingPlayer
+  ---@return number?
+  local function sr_adjustment( player )
+    return m.RollingLogicUtils.preview_total( player, item_on_roll, RS.SoftResRoll )
+  end
+
+  ---@param data RollData
+  local function record( data )
     if current_iteration == 0 then return end
     M.debug.add( "add" )
 
-    ---@type RollData
-    local data = { player_name = player_name, player_class = player_class, roll_type = roll_type, roll = roll }
+    local roll = data.roll
     local iteration = iterations[ current_iteration ]
 
     -- Placeholders get no ordinal. Cast rolls get a monotonic one so that the popup can
@@ -103,6 +111,22 @@ function M.new( item_on_roll )
     m.RollingLogicUtils.sort_roll_data( iteration.rolls )
   end
 
+  ---@param player_name string
+  ---@param player_class string
+  ---@param roll_type RollType
+  ---@param roll number?
+  ---@param adjustments RollAdjustment[]? -- what modifiers made of the cast roll
+  local function add( player_name, player_class, roll_type, roll, adjustments )
+    record( { player_name = player_name, player_class = player_class, roll_type = roll_type, roll = roll, adjustments = adjustments } )
+  end
+
+  ---@param player RollingPlayer
+  ---@param roll_type RollType
+  ---@param adjustment number?
+  local function add_placeholder( player, roll_type, adjustment )
+    record( { player_name = player.name, player_class = player.class, roll_type = roll_type, adjustment = adjustment } )
+  end
+
   ---@param players RollingPlayer[]
   local function create_roll_data( players )
     local result = {}
@@ -110,7 +134,7 @@ function M.new( item_on_roll )
     for _, player in ipairs( players ) do
       for _ = 1, player.rolls do
         ---@type RollData
-        local data = { player_name = player.name, player_class = player.class, roll_type = RT.SoftRes }
+        local data = { player_name = player.name, player_class = player.class, roll_type = RT.SoftRes, adjustment = sr_adjustment( player ) }
         table.insert( result, data )
       end
 
@@ -145,7 +169,7 @@ function M.new( item_on_roll )
 
       for _, player in ipairs( soft_ressers or {} ) do
         for _ = 1, player.rolls or 1 do
-          add( player.name, player.class, RT.SoftRes )
+          add_placeholder( player, RT.SoftRes, sr_adjustment( player ) )
         end
       end
     end
@@ -180,9 +204,15 @@ function M.new( item_on_roll )
       rolls = {}
     } )
 
+    local soft_res = rolling_strategy == RS.SoftResRoll
+
     for _, player in ipairs( required_rolling_players or {} ) do
       for _ = 1, player.rolls or 1 do
-        add( player.name, player.class, rolling_strategy == RS.SoftResRoll and RT.SoftRes or RS.TieRoll )
+        if soft_res then
+          add_placeholder( player, RT.SoftRes, sr_adjustment( player ) )
+        else
+          add_placeholder( player, RS.TieRoll )
+        end
       end
     end
   end
@@ -228,7 +258,7 @@ function M.new( item_on_roll )
     } )
 
     for _, player in ipairs( players or {} ) do
-      add( player.name, player.class, roll_type )
+      add_placeholder( player, roll_type )
     end
   end
 

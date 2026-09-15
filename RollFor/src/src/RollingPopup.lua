@@ -182,7 +182,7 @@ function M.new( popup_builder, content_transformer, db, config )
           if v.rolls then
             -- Grouped row: one row per player, one cell per roll.
             frame.player_name:SetText( c( v.player_name, v.player_class ) )
-            frame.set_cells( v.rolls, v.cell_count, v.best_index, config.sr_roll_spacing() )
+            frame.set_cells( v.rolls, v.cell_count, v.best_index, config.sr_roll_spacing(), v.adjustment )
             table.insert( grouped_rows, frame )
           else
             frame.set_single_cell()

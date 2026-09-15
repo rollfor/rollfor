@@ -170,7 +170,7 @@ function M.new( rolling_popup, db )
 
     RF_ROLL = function( payload )
       if not state then return end
-      local roll_data = { roll_type = payload.roll_type, player_name = payload.player_name, player_class = payload.player_class, roll = payload.roll }
+      local roll_data = { roll_type = payload.roll_type, player_name = payload.player_name, player_class = payload.player_class, roll = payload.roll, adjustments = payload.adjustments }
       if state.strategy_type == "TieRoll" and state.tie_iterations and m.getn( state.tie_iterations ) > 0 then
         local current = state.tie_iterations[ m.getn( state.tie_iterations ) ]
         m.RollingLogicUtils.update_roll( current.rolls, roll_data )

@@ -180,6 +180,7 @@ function M.new( config )
             player_class = roll.player_class,
             rolls = {},
             cell_count = cell_count,
+            adjustment = roll.adjustment,
             padding = padding
           }
 
@@ -188,7 +189,7 @@ function M.new( config )
           table.insert( result, row )
         end
 
-        table.insert( row.rolls, { roll_type = roll.roll_type, roll = roll.roll, ordinal = roll.ordinal } )
+        table.insert( row.rolls, { roll_type = roll.roll_type, roll = roll.roll, ordinal = roll.ordinal, adjustments = roll.adjustments } )
       else
         table.insert( result, {
           type = "roll",

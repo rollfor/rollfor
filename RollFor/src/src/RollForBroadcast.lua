@@ -110,6 +110,7 @@ function M.new( roll_controller, config )
   ---@field player_name string
   ---@field player_class string
   ---@field roll number
+  ---@field adjustments RollAdjustment[]?
 
   ---@param data RollEvent
   local function on_roll( data )
@@ -121,7 +122,8 @@ function M.new( roll_controller, config )
       roll_type = data.roll_type,
       player_name = data.player_name,
       player_class = data.player_class,
-      roll = data.roll
+      roll = data.roll,
+      adjustments = data.adjustments
     }
 
     send_if_active( event )

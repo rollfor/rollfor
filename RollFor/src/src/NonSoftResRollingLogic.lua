@@ -197,7 +197,7 @@ function M.new(
     local total, adjustments = apply_modifiers( player, item, roll, m.Types.RollingStrategy.NormalRoll )
     local t = ms_roll and mainspec_rolls or offspec_rolls
     table.insert( t, make_roll( player, roll_type, total, adjustments ) )
-    controller.roll_was_accepted( player.name, player.class, roll_type, total )
+    controller.roll_was_accepted( player.name, player.class, roll_type, total, adjustments )
 
     if have_all_rolls_been_exhausted() then find_winner() end
   end

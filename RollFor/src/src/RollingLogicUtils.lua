@@ -295,10 +295,24 @@ function M.preview_adjustments( player, item, strategy )
   return adjustments
 end
 
--- The pre-roll annotation, summed into one number. Two modifiers contributing +30 and +20
--- read as " (+50)"; the breakdown is left to the winner announcement, where there is room
--- for it. Empty string when nothing has anything to add, so callers can concatenate it
--- unconditionally.
+-- The preview, summed into one number. nil when nothing has anything to add.
+---@param player RollingPlayer
+---@param item Item
+---@param strategy RollingStrategyType
+---@return number?
+function M.preview_total( player, item, strategy )
+  local adjustments = M.preview_adjustments( player, item, strategy )
+  if not adjustments then return nil end
+
+  local total = 0
+  for _, adjustment in ipairs( adjustments ) do total = total + adjustment.delta end
+
+  return total ~= 0 and total or nil
+end
+
+-- The pre-roll annotation. Two modifiers contributing +30 and +20 read as " (+50)"; the
+-- breakdown is left to the winner announcement, where there is room for it. Empty string
+-- when nothing has anything to add, so callers can concatenate it unconditionally.
 --
 -- Shared because both display sites -- the roll call and the drop announcement -- have to
 -- say the same thing about the same player.
@@ -307,15 +321,35 @@ end
 ---@param strategy RollingStrategyType
 ---@return string
 function M.format_preview_annotation( player, item, strategy )
-  local adjustments = M.preview_adjustments( player, item, strategy )
-  if not adjustments then return "" end
-
-  local total = 0
-  for _, adjustment in ipairs( adjustments ) do total = total + adjustment.delta end
-
-  if total == 0 then return "" end
+  local total = M.preview_total( player, item, strategy )
+  if not total then return "" end
 
   return string.format( " (%s%d)", total > 0 and "+" or "-", math.abs( total ) )
+end
+
+-- How a roll's number was arrived at: `89+30=119` for one adjustment, `50+30+20=100`
+-- for two, and the bare total when nothing touched it. The base is the total less the
+-- sum of the deltas, so it is never stored twice and never re-derived from anywhere else.
+--
+-- Read off the roll rather than looked up: what modified a roll recorded that it did,
+-- and this renders the record without knowing what produced it. Shared because the winner
+-- announcement and the popup's roll tooltip have to say the same thing about the same roll.
+---@param value number
+---@param adjustments RollAdjustment[]?
+---@return string|number
+function M.decompose( value, adjustments )
+  if not adjustments or getn( adjustments ) == 0 then return value end
+
+  local base = value
+  for _, adjustment in ipairs( adjustments ) do base = base - adjustment.delta end
+
+  local result = tostring( base )
+
+  for _, adjustment in ipairs( adjustments ) do
+    result = string.format( "%s%s%s", result, adjustment.delta < 0 and "-" or "+", math.abs( adjustment.delta ) )
+  end
+
+  return string.format( "%s=%s", result, value )
 end
 
 ---Drops every registration. Tests only -- an extension never unregisters.
@@ -448,6 +482,7 @@ function M.update_roll( rolls, data )
       if line.roll_type == data.roll_type then
         line.roll = data.roll
         line.ordinal = data.ordinal
+        line.adjustments = data.adjustments
         return
       end
 
@@ -459,6 +494,7 @@ function M.update_roll( rolls, data )
 
   fallback.roll = data.roll
   fallback.ordinal = data.ordinal
+  fallback.adjustments = data.adjustments
 end
 
 ---@param rolls RollData[]

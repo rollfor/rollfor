@@ -15,7 +15,7 @@ local sid = m.SoftRes.softres_item_data
 
 ---@class RollControllerFacade
 ---@field roll_was_ignored fun( player_name: string, player_class: string?, roll_type: RollType, roll: number, reason: string )
----@field roll_was_accepted fun( player_name: string, player_class: string, roll_type: RollType, roll: number )
+---@field roll_was_accepted fun( player_name: string, player_class: string, roll_type: RollType, roll: number, adjustments: RollAdjustment[]? )
 ---@field tick fun( seconds_left: number )
 ---@field winners_found fun( item: Item, item_count: number, winners: Winner[], strategy: RollingStrategyType, skip_tracking: boolean? )
 ---@field finish fun()
@@ -29,7 +29,7 @@ local sid = m.SoftRes.softres_item_data
 ---@field winners_found fun( item: Item, item_count: number, winners: Winner[], strategy: RollingStrategyType, skip_tracking: boolean? )
 ---@field finish fun()
 ---@field tick fun( seconds_left: number )
----@field add fun( player_name: string, player_class: string, roll_type: RollType, roll: number )
+---@field add fun( player_name: string, player_class: string, roll_type: RollType, roll: number, adjustments: RollAdjustment[]? )
 ---@field add_ignored fun( player_name: string, player_class: string?, roll_type: RollType, roll: number, reason: string )
 ---@field rolling_canceled fun()
 ---@field subscribe fun( event_type: string, callback: fun( data: any ) )
@@ -1004,15 +1004,17 @@ function M.new(
   ---@field player_class string
   ---@field roll_type RollType
   ---@field roll number
+  ---@field adjustments RollAdjustment[]?
 
   ---@param player_name string
   ---@param player_class string
   ---@param roll_type RollType
   ---@param roll number
-  local function on_roll( player_name, player_class, roll_type, roll )
+  ---@param adjustments RollAdjustment[]? -- what modifiers made of the roll
+  local function on_roll( player_name, player_class, roll_type, roll, adjustments )
     M.debug.add( string.format( "on_roll( %s, %s, %s, %s )", player_name, player_class, roll_type, roll ) )
     local roll_tracker = get_roll_tracker( currently_displayed_item and currently_displayed_item.id )
-    roll_tracker.add( player_name, player_class, roll_type, roll )
+    roll_tracker.add( player_name, player_class, roll_type, roll, adjustments )
 
     ---@type RollEvent
     local event = {
@@ -1020,7 +1022,8 @@ function M.new(
       player_name = player_name,
       player_class = player_class,
       roll_type = roll_type,
-      roll = roll
+      roll = roll,
+      adjustments = adjustments
     }
 
     notify_subscribers( event )

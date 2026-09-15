@@ -137,7 +137,7 @@ function M.new( chat, players, item, item_count, item_quantity, on_rolling_finis
     local total, adjustments = apply_modifiers( player, item, roll, m.Types.RollingStrategy.TieRoll )
 
     table.insert( rolls, make_roll( player, roll_type, total, adjustments ) )
-    controller.roll_was_accepted( roller.name, player.class, roll_type, total )
+    controller.roll_was_accepted( roller.name, player.class, roll_type, total, adjustments )
 
     if have_all_rolls_been_exhausted() then find_winner() end
   end
