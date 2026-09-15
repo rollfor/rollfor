@@ -1,5 +1,5 @@
 -- The test harness lives in RollForSoftRes now -- one copy for the three addons instead of
--- three. It is a sibling in the AddOns tree, which is how the client installs it and how
+-- three. It sits beside this addon, as it does in AddOns, where
 -- `## Dependencies: RollForSoftRes` guarantees it is there.
 package.path = "./?.lua;" .. package.path ..
     ";../../RollFor/src/?.lua;../../RollFor/src/libs/?.lua;../../RollFor/src/libs/LibStub/?.lua" ..

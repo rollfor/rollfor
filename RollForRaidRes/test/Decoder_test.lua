@@ -1,5 +1,5 @@
 -- The test harness lives in RollForSoftRes now -- one copy for the three addons instead of
--- three. It is a sibling in the AddOns tree, which is how the client installs it and how
+-- three. It sits beside this addon, as it does in AddOns, where
 -- `## Dependencies: RollForSoftRes` guarantees it is there.
 package.path = "./?.lua;" .. package.path ..
     ";../../RollFor/src/?.lua;../../RollFor/src/libs/?.lua;../../RollFor/src/libs/LibStub/?.lua" ..
@@ -61,7 +61,7 @@ end
 -- raidres emits a per-item roll bonus. It is absent from every other export in this repo
 -- because those are all from raids where nobody had points set, and a field raidres omits
 -- when it is zero cannot appear in them -- which is how "not in our samples" was once read
--- as "not in the format". SR-PLUS §7.
+-- as "not in the format".
 function DecoderSpec:should_decode_the_per_item_roll_bonus()
   -- When
   local result = assert( mod.decode( fixture( "raidres-sr-plus.txt" ) ) )

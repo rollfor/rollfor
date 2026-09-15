@@ -6,7 +6,7 @@ local sr = RollForRaidRes
 -- This addon is a **data provider** for RollForSoftRes. That addon owns the soft-res list,
 -- the import window, the name matching, /sr and the registration with core's SoftResSource;
 -- what it does not own is any opinion about base64, so a provider supplies one `decode` and
--- is otherwise absent. See SR-DIFF.md §7.
+-- is otherwise absent.
 --
 -- It creates no frames, claims no slash commands, adds nothing to any chain, subscribes to
 -- nothing, and never touches SoftResSource. That is exactly what lets it and

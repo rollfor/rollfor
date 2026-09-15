@@ -1,6 +1,6 @@
 package.path = "./?.lua;" .. package.path .. ";../../RollFor/src/?.lua;../../RollFor/src/libs/?.lua;../src/?.lua;../../?.lua;../src/src/?.lua"
 
--- The §4.3 ordering hazard, which is the one mistake in this addon that fails silently.
+-- The awarded-loot ordering hazard, which is the one mistake in this addon that fails silently.
 --
 -- The `awarded_loot` soft-res link filters out a player who has already been given the
 -- item. To do that it needs the *decorated* awarded-loot record, which core builds from

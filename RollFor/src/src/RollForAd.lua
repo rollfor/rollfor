@@ -5,7 +5,7 @@ if m.RollForAd then return end
 
 local M = {}
 
-local url = "https://github.com/obszczymucha/roll-for-vanilla/releases/download/latest/RollFor.zip"
+local url = "https://github.com/rollfor/rollfor/releases"
 
 ---@param player_info PlayerInfo
 function M.new( player_info )

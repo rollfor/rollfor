@@ -3,7 +3,7 @@
 -- THIS IS DELIBERATELY DUMB. It is the six read methods over a literal table and nothing
 -- else: no group filtering, no awarded-loot filtering, no name matching, no import, no
 -- persistence. If a test of yours needs any of those, that test belongs in
--- RollForSoftResIt, not here -- move it rather than teaching this double another
+-- RollForSoftRes, not here -- move it rather than teaching this double another
 -- behaviour. Core has no soft-res implementation left to test; what it has is consumers,
 -- and consumers only need data to arrive.
 --

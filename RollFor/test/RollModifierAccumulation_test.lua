@@ -142,7 +142,7 @@ end
 
 TieSpec = {}
 
--- SR-PLUS §6.1, reproduced and fixed. Psikutas holds +30 for the soft-res round only. He
+-- The original SR+'s tie bug, reproduced and fixed. Psikutas holds +30 for the soft-res round only. He
 -- rolls 39, which is worth 69 and ties Obszczymucha's flat 69. The tie round is a different
 -- round, so nothing adjusts it -- and the announcement says the bare number the player
 -- actually rolled, instead of subtracting a bonus that was never applied.

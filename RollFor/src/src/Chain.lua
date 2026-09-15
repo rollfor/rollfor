@@ -19,7 +19,7 @@ local M = {}
 --
 -- Anchors are resolved at build time, not as each link arrives, so a link may anchor to
 -- one that has not been added yet. It has to work that way: addons load alphabetically,
--- so RollForNetherVortex declares itself before RollForSoftResIt contributes the very
+-- so RollForNetherVortex declares itself before RollForSoftRes contributes the very
 -- links it anchors to, and neither addon can do anything about the other's name.
 --
 -- An anchor that is still unresolvable once everything has been added takes that one

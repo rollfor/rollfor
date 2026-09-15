@@ -1,21 +1,21 @@
 -- This harness exists to stuff mocks into the API and lua tables, so injecting fields is
 -- what it does rather than a mistake it makes.
 ---@diagnostic disable: inject-field
--- Vendored from RollFor's own test harness (roll-for-vanilla/master/test/utils.lua).
+-- Vendored from RollFor's own test harness (RollFor/test/utils.lua).
 --
--- This addon is tested against the sibling RollFor folder in the AddOns tree, which is
--- how it is actually installed. The harness itself is copied rather than reached for, so
+-- This addon is tested against the RollFor folder beside it in this repo, laid out the way
+-- the client installs the two. The harness itself is copied rather than reached for, so
 -- the extension's suite stands on its own -- at the cost of drifting from core's copy.
 -- Every intentional difference is marked with an "EXTENSION:" comment, so a future diff
 -- against core's version is mechanical.
 --
 -- EXTENSION: load_roll_for and load_real_stuff also load this addon, so that anything
 -- reaching for RollFor's main.lua gets the extension registered on top of it -- the same
--- order the client produces from .
+-- order the client produces from `## Dependencies: RollFor`.
 
--- EXTENSION: RollFor is a sibling addon, so it is two levels up from this test dir, and
--- it comes before the addon's own root -- both ship a src/ and a main.lua, and core has
--- to win those lookups.
+-- EXTENSION: RollFor sits beside this addon, so it is two levels up from this test dir, and
+-- it comes before the addon's own src/ -- both ship a src/, and core has to win those
+-- lookups.
 package.path = "./?.lua;" .. package.path ..
     ";../../RollFor/src/?.lua;../../RollFor/src/libs/?.lua;../../RollFor/src/libs/LibStub/?.lua;../src/?.lua;../../?.lua"
 
@@ -1028,7 +1028,7 @@ function M.load_real_stuff( req )
   r( "src/DroppedLoot" )
   r( "src/TradeTracker" )
   r( "src/SoftRes" )
-  r( "src/SoftResSource" ) -- EXTENSION: vendored-copy upkeep, kept in sync with core's own test/utils.lua load list (SR-EXTENSION.md Phase A).
+  r( "src/SoftResSource" ) -- EXTENSION: vendored-copy upkeep, kept in sync with core's own test/utils.lua load list.
   r( "src/DroppedLootAnnounce" )
   r( "src/AwardedLoot" )
   r( "src/GroupRoster" )
@@ -1113,11 +1113,11 @@ function M.targetting_player( name )
   M.mock( "UnitIsFriend", true )
 end
 
--- EXTENSION: core has no soft-res of its own since SR-EXTENSION.md §6 -- soft-res arrives
+-- EXTENSION: core has no soft-res of its own since it moved to RollForSoftRes -- it arrives
 -- through a source extension, and this addon is not one. So the harness registers a
 -- stand-in source: the vendored dumb double for the data, identity links for matched_name
--- and present_players, and a real awarded-loot link, because this addon's specs assert
--- that a player who already won an item stops being offered it.
+-- and present_players, and a real awarded-loot link, so a player who already won an item
+-- stops being offered it, as they would in game.
 --
 -- Registered as a genuine extension rather than poked into SoftResSource directly:
 -- create_components() clears the source registry on every login, so the only way in is the

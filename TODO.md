@@ -54,3 +54,22 @@ Every harness type is defined once, so the per-addon workspaces in
 `scripts/check.sh` stop being needed to avoid duplicate warnings (they may still
 be worth keeping: each `.luarc.json` is what proves an addon only reaches what
 its TOC depends on). Update the Layout and Diagnostics sections of `CLAUDE.md`.
+
+## README
+
+### Soft-Res setup
+
+The steps in `README.md` walk through one site's export, and the screenshots
+(`docs/raidres-*.jpg`) don't match the site the text names. Replace them with
+the provider extensions: `RollForSoftResIt` for softres.it and `RollForRaidRes`
+for raidres.top, each pointing at its own README for the import steps.
+
+### Commands
+
+`README.md` lists the roll and soft-res commands only. Document the rest:
+`/rf <item> <seconds>`, `/htr`, `/award`, `/unaward`, `/rfreset announce`,
+`/rf versioncheck`, and a bare `/rf` opening the options window.
+
+### GIFs
+
+Recreate the GIFs and screenshots in `docs/` against the current UI.

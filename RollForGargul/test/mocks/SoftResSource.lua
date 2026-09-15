@@ -1,6 +1,6 @@
--- EXTENSION: vendored from RollFor's test/mocks/SoftResSource.lua (SR-EXTENSION.md §9.3),
--- unchanged. This addon's suite needs a soft-res source for the same reason core's does:
--- the real one lives in RollForSoftRes, which this addon does not depend on.
+-- EXTENSION: vendored from RollFor's test/mocks/SoftResSource.lua, unchanged. This addon's
+-- suite needs a soft-res source for the same reason core's does: the real one lives in
+-- RollForSoftRes, which this suite does not load.
 --
 -- The soft-res source core's own suite tests against.
 --

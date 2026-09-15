@@ -3,7 +3,7 @@
 ## Reference
 - **Client UI source** (BCC, `2.5.6.68502`), the authority on what an API
   returns: `$HOME/.projects/lua/wow-ui-source.git/classic_anniversary`
-- **Other addons**, ModUi among them, and the extensions not bundled here yet:
+- **Other addons**, ModUi among them:
   `$HOME/.projects/lua/wow-2.5.x-addons.git/master`
 - **Keys of `_G`:** `api-dumps/WowApiDump_20260822.txt`
 

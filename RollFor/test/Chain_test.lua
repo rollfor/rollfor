@@ -89,7 +89,7 @@ function ChainOrderSpec:should_honour_both_anchors_at_once()
 end
 
 -- The case this whole mechanism exists for. Addons load alphabetically, so
--- RollForNetherVortex declares its link before RollForSoftResIt contributes the
+-- RollForNetherVortex declares its link before RollForSoftRes contributes the
 -- "awarded_loot" and "present_players" it sits between, and neither addon can do anything
 -- about the other's name. Anchors are therefore resolved once everything has been added,
 -- not as each link arrives.

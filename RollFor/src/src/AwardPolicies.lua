@@ -50,15 +50,16 @@ local getn = m.getn
 ---@field on_loot_opened fun()
 ---@field on_loot_slot_cleared fun()
 
--- The policies RollFor distributes with itself, in the order they went out with, seeding the
--- first run and nothing else.
+-- The RollFor project's own policies, in the order they went out with, seeding the first run
+-- and nothing else.
 --
 -- This is not POSITIONS returning. That list was load-bearing: a name nobody occupied meant the
 -- handlers anchored to it fell out of the chain and items went to the wrong person, which is why
 -- vacancies needed placeholders. This is a seed value -- a name nobody registered is ignored, no
 -- placeholder and no gap, an empty list works fine, and nothing anchors to it. And these are
--- addons shipped in the same package (see scripts/bundle.sh), so it is core knowing its own
--- distribution rather than core knowing a stranger's feature.
+-- the project's own addons -- RollForAutoLoot ships in RollFor's zip, RollForAutoRobin in its
+-- own from rollfor/auto-robin -- so it is core knowing its own family rather than core knowing
+-- a stranger's feature.
 --
 -- The soft failure to be aware of: if RollForAutoLoot renames its policy, this silently stops
 -- applying to it and it lands below the known names instead. That costs a first-run ordering,

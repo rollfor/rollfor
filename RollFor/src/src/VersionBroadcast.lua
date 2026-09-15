@@ -118,7 +118,7 @@ function M.new( db, player_info, my_version )
   local function notify_about_new_version( ver )
     db.last_new_version_reminder_timestamp = m.lua.time()
     pp( string.format( "New version (%s) is available!", m.colors.highlight( string.format( "v%s", ver ) ) ) )
-    pp( "https://github.com/obszczymucha/roll-for-vanilla/releases/download/latest/RollFor.zip" )
+    pp( "https://github.com/rollfor/rollfor/releases" )
   end
 
   local function on_version( their_version )

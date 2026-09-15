@@ -14,7 +14,7 @@ local lu, eq = utils.luaunit( "assertEquals" )
 -- That shipped once. Nothing caught it, because core's own soft-res kept working
 -- perfectly -- the failure is only visible from an extension's side.
 --
--- Since §5.0 the built-in is all-or-nothing: claiming the source slot means core adds no
+-- Now the built-in is all-or-nothing: claiming the source slot means core adds no
 -- backbone, no tap, no SoftResCheck, no gui and no /sr, so the probe below contributes
 -- the backbone itself -- which is exactly what a real source extension has to do. The
 -- chain the specs assert on is therefore entirely the extension's.
@@ -52,8 +52,8 @@ Extensions.register( {
     -- Anchored to names that arrive later in this same on_enable. Under add-time anchor
     -- resolution this threw, was swallowed by Extensions.run's pcall, and left the
     -- extension quietly disabled -- which is what would have happened to
-    -- RollForNetherVortex in Phase C, since addons load alphabetically and it declares
-    -- itself before RollForSoftResIt contributes the links it sits between.
+    -- RollForNetherVortex once soft-res left core, since addons load alphabetically and it
+    -- declares itself before RollForSoftRes contributes the links it sits between.
     ctx.softres_chain.add( {
       name = "probe_link",
       after = "awarded_loot",
@@ -105,7 +105,7 @@ function SourcePrecedenceSpec:should_answer_has_data_from_the_extension()
   eq( SoftResSource.has_data(), true )
 end
 
--- §5.0: core's built-in is all-or-nothing. Once an extension claims the source slot,
+-- Core's built-in is all-or-nothing. Once an extension claims the source slot,
 -- core contributes none of it -- not the store, not the matcher, not SoftResCheck, not
 -- the gui, not the /sr family. Gating only the chain links was tried and fails at login:
 -- SoftResCheck gets built on a nil "unfiltered" tap and core's minimap contribution dies

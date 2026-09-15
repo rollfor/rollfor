@@ -4,8 +4,8 @@ package.path = "./?.lua;" .. package.path .. ";../../RollFor/src/?.lua;../../Rol
 --
 -- This addon holds the list and knows nothing about wire formats: a provider addon
 -- registers a `decode`, and the window's Provider dropdown is where the user says which
--- one a pasted string came from. SR-DIFF §7.3 lists the states that has to answer, and
--- there is one case per row here.
+-- one a pasted string came from. There is one case here per state that dropdown has to
+-- answer.
 --
 -- Driven through the real thing -- RollFor, then this addon, then `/sr` -- rather than
 -- against SoftResGui in isolation, because half of what is under test is which provider id

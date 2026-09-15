@@ -215,9 +215,8 @@ end
 -- Context is now v6 (v2 added api, softres_source, softres_tap and minimap for the
 -- soft-res extraction; v3 added on_loot and on_dropped_item for the loot pipeline; v4 added
 -- roll_modifier; v5 added the selection tree components and softres_source.get_import_string;
--- v6 put the loot pipeline on phases), but an extension built against v1 -- RollForNetherVortex
--- among them -- must keep loading unchanged: the check only rejects a spec declaring a version
--- *greater* than the host's.
+-- v6 put the loot pipeline on phases), but an extension built against v1 must keep loading
+-- unchanged: the check only rejects a spec declaring a version *greater* than the host's.
 --
 -- Which is the honest shape of the v6 break: a pipeline extension still built for v5 loads and
 -- runs, and its handler simply has no phase. Nothing silently mis-orders, because a handler
@@ -234,7 +233,7 @@ end
 -- The version this host publishes is always accepted; an extension that asks for more than
 -- the host has is the only rejection.
 function CompatibilitySpec:should_accept_an_extension_built_against_the_current_api_version()
-  eq( Extensions.register( spec( "auto_robin", { api_version = 3 } ) ), true )
+  eq( Extensions.register( spec( "auto_robin", { api_version = Extensions.API_VERSION } ) ), true )
 
   eq( Extensions.all()[ 1 ].incompatible, nil )
   eq( Extensions.is_enabled( "auto_robin" ), true )

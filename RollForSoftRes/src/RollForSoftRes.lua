@@ -10,7 +10,7 @@ local sr = RollForSoftRes
 --
 -- What this addon does *not* know is what a base64 string is. A **provider** -- a separate
 -- addon such as RollForSoftResIt or RollForRaidRes -- registers a `decode` here, and that
--- is the whole of what "which website did this come from" means. See SR-DIFF.md §7.
+-- is the whole of what "which website did this come from" means.
 --
 -- The registration at the bottom runs at file scope: the TOC declares
 -- `## Dependencies: RollFor`, which makes the client load RollFor first and refuse to load

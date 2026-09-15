@@ -1,10 +1,10 @@
 -- This harness exists to stuff mocks into the API and lua tables, so injecting fields is
 -- what it does rather than a mistake it makes.
 ---@diagnostic disable: inject-field
--- Vendored from RollFor's own test harness (roll-for-vanilla/master/test/utils.lua).
+-- Vendored from RollFor's own test harness (RollFor/test/utils.lua).
 --
--- This addon is tested against the sibling RollFor folder in the AddOns tree, which is
--- how it is actually installed. The harness itself is copied rather than reached for, so
+-- This addon is tested against the RollFor folder beside it in this repo, laid out the way
+-- the client installs the two. The harness itself is copied rather than reached for, so
 -- the extension's suite stands on its own -- at the cost of drifting from core's copy.
 -- Every intentional difference is marked with an "EXTENSION:" comment, so a future diff
 -- against core's version is mechanical.
@@ -13,9 +13,9 @@
 -- reaching for RollFor's main.lua gets the extension registered on top of it -- the same
 -- order the client produces from `## Dependencies: RollFor`.
 
--- EXTENSION: RollFor is a sibling addon, so it is two levels up from this test dir, and
--- it comes before the addon's own root -- both ship a src/ and a main.lua, and core has
--- to win those lookups.
+-- EXTENSION: RollFor sits beside this addon, so it is two levels up from this test dir, and
+-- it comes before the addon's own src/ -- both ship a src/, and core has to win those
+-- lookups.
 --
 -- EXTENSION: and it matters far more here than it does for Nether Vortex. This addon ships
 -- `src/SoftResCheck.lua`, `src/SoftResGui.lua`, `src/NameAutoMatcher.lua` and six more
@@ -888,7 +888,7 @@ function M.load_extension()
   require( "src/AwardedLoot" )
   -- Core's SoftRes, which after the extraction is types + softres_item_data + null(). This
   -- addon's store builds its item data with it, so it is a real dependency and not just
-  -- load-order noise -- see SR-EXTENSION.md §5.3 on the published surface.
+  -- load-order noise.
   require( "src/SoftRes" )
   require( "src/Chain" )
   require( "src/Extensions" )
@@ -1119,7 +1119,7 @@ function M.load_real_stuff( req )
   r( "src/TradeTracker" )
   r( "src/SoftResDataTransformer" )
   r( "src/SoftRes" )
-  r( "src/SoftResSource" ) -- EXTENSION: vendored-copy upkeep, kept in sync with core's own test/utils.lua load list (SR-EXTENSION.md Phase A).
+  r( "src/SoftResSource" ) -- EXTENSION: vendored-copy upkeep, kept in sync with core's own test/utils.lua load list.
   r( "src/DroppedLootAnnounce" )
   r( "src/SoftResGui" )
   r( "src/AwardedLoot" )

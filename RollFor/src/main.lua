@@ -220,8 +220,8 @@ end
 
 -- The full soft-res picture before the group filter drops everyone who isn't here, or nil
 -- before the chain is built or if no such tap exists. Guarded because `Chain.build`'s
--- `tap()` errors on an unknown name -- once a source extension owns "present_players"
--- (Phase C), whether the "unfiltered" tap exists at all is no longer guaranteed. Asked
+-- `tap()` errors on an unknown name -- with a source extension owning "present_players",
+-- whether the "unfiltered" tap exists at all is no longer guaranteed. Asked
 -- via has_tap rather than pcall so a genuine error from inside the chain still surfaces.
 ---@param name string
 ---@return any?
@@ -1181,7 +1181,7 @@ function M.on_player_login()
   -- has gone wrong, this is a supported way to run the addon.
   if not m.SoftResSource.get() then
     info( string.format( "No soft-res source installed. Soft-res features are unavailable -- install %s.",
-      hl( "RollForSoftResIt" ) ) )
+      hl( "RollForSoftRes" ) ) )
   end
 
   ---@diagnostic disable-next-line: undefined-global

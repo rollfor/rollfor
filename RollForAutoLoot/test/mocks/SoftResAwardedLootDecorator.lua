@@ -1,10 +1,9 @@
 -- EXTENSION: stands in for the source extension's awarded-loot link.
 --
--- Core used to ship src/SoftResAwardedLootDecorator.lua; since SR-EXTENSION.md §6 it is
--- RollForSoftRes's, and this addon does not depend on that one. But this addon's link
--- anchors *after* `awarded_loot` and its integration spec asserts that a player who
--- already won a vortex stops being offered one -- which is this behaviour. So the harness
--- carries a copy, kept deliberately identical to RollForSoftRes's src/ version.
+-- Core used to ship src/SoftResAwardedLootDecorator.lua; it is RollForSoftRes's now, and
+-- this suite does not load that addon. But the harness has to stop offering an item to a
+-- player who already won it, as the game would -- which is this behaviour. So the harness
+-- carries a copy, kept deliberately identical to RollForSoftRes's own.
 
 local m = RollFor
 

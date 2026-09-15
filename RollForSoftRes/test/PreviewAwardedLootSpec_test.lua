@@ -12,7 +12,7 @@ local item_link, text, buttons = gui.item_link, gui.text, gui.buttons
 local enabled_item, selected_item = gui.enabled_item, gui.selected_item
 local individual_award_button = gui.individual_award_button
 
--- Two specs out of core's PreviewSpec_test, moved here by §9.1's rule: they award an item
+-- Two specs out of core's PreviewSpec_test, moved here because they need this addon: they award an item
 -- to one soft-resser and then assert the winner list no longer offers the player who
 -- already won. That is awarded-loot filtering, which is this addon's
 -- SoftResAwardedLootDecorator, so this is where they can pass. The other seventeen preview

@@ -141,8 +141,9 @@ local function group_aware_softres( group_roster, awarded_loot, data, extend )
   local softres_chain = Chain.new( "softres" )
 
   -- Resolved when the soft-res chain is built, which happens after the awarded-loot one.
-  -- This is the §4.3 hazard the addon's awarded_loot factory depends on: it asks for the
-  -- decorated record from inside the factory, so it sees this value and not nil.
+  -- This is the ordering hazard AwardedLootFactoryTiming_test pins: the addon's awarded_loot
+  -- factory asks for the decorated record from inside the factory, so it sees this value and
+  -- not nil.
   local decorated_awarded_loot
 
   local function get( name )

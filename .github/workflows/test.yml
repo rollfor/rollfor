@@ -2,10 +2,14 @@ name: RollFor Tests
 
 on:
   push:
-    branches: [ "master", "v3" ]
-  pull_request_target:
+    branches: [ "master" ]
+  pull_request:
     types: [opened, reopened, edited, synchronize]
     branches: [ "master" ]
+
+# A pull request's code runs here, so its token can read the repo and nothing more.
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -13,9 +17,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
-        ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 0
 
     - name: Run tests

@@ -1,14 +1,13 @@
--- PINNED CONTRACT — DO NOT EDIT WHEN IMPLEMENTING SR_REDESIGN.md
+-- PINNED CONTRACT — DO NOT EDIT WHEN CHANGING THE SR ROWS
 --
--- These specs were written from SR_REDESIGN.md *before* the implementation existed, and
--- they are the acceptance criteria for it. They deliberately assert literal table
+-- These specs were written from the SR row redesign *before* the implementation existed,
+-- and they are the acceptance criteria for it. They deliberately assert literal table
 -- structures instead of using test/gui_helpers.lua, so that they cannot be satisfied by
 -- changing a helper.
 --
 -- If a spec here fails, the implementation is wrong. Fixing the implementation is the
 -- only permitted response. Do not edit, weaken, skip or delete anything in this file.
 --
--- Expected to be RED until SR_REDESIGN.md is implemented.
 
 package.path = "./?.lua;" .. package.path .. ";../src/?.lua;../../?.lua"
 

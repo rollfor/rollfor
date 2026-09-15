@@ -8,8 +8,8 @@ package.path = "./?.lua;" .. package.path .. ";../../RollFor/src/?.lua;../../Rol
 -- construction mistake in there does not show up anywhere else in this suite -- it shows
 -- up at somebody's login.
 --
--- It is also §5.9's first acceptance line, written down: with this addon installed, its
--- source wins and core's built-in does not register.
+-- It also pins the first thing installing this addon has to mean: its source wins and
+-- core's built-in does not register.
 
 require( "src/compat" )
 local u = require( "RollForSoftRes/test/utils" )
@@ -32,7 +32,7 @@ function SourceSpec:should_be_the_registered_source()
   eq( SoftResSource.get().id, "softres" )
 end
 
--- The other half of §5.0: core saw the slot taken and contributed none of its own
+-- The other half of owning the slot: core saw it taken and contributed none of its own
 -- soft-res. If core had also built its store, both would be adding `matched_name` and the
 -- second one would have been refused.
 function SourceSpec:should_have_left_core_with_no_builtin_of_its_own()

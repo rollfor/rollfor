@@ -91,13 +91,14 @@ function RegistrationSpec:should_offer_its_own_options_page()
   eq( type( Extensions.all()[ 1 ].options_page ), "function" )
 end
 
--- The selection tree and the window that draws it arrived on ctx with API 5.
+-- The selection tree and the window that draws it arrived on ctx with API 5, and award_policy
+-- with API 6.
 function RegistrationSpec:should_declare_the_api_version_the_seams_it_uses_arrived_in()
   Extensions.clear()
   auto_loot.register()
 
   eq( Extensions.all()[ 1 ].incompatible, nil )
-  eq( Extensions.API_VERSION >= 5, true )
+  eq( Extensions.all()[ 1 ].api_version, 6 )
 end
 
 -- "Auto-loot" is this addon's on/off switch, so core must not offer a second one above it. The

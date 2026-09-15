@@ -310,7 +310,7 @@ function OrderSpec:should_fall_back_to_registration_order_with_no_saved_order()
   eq( order_of( with_policies( db, { "third_party", "another" } ) ), { "third_party", "another" } )
 end
 
--- What core ships with itself, seeding the first run. Registration order is addon load order,
+-- The RollFor project's own policies, seeding the first run. Registration order is addon load order,
 -- which is alphabetical by folder name, so it agrees here by accident -- register them the other
 -- way round and the seed is what is being read.
 function OrderSpec:should_seed_the_first_run_from_the_order_core_ships()
