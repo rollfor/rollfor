@@ -148,6 +148,24 @@ local fallback_boss_colors = {
   "f06292", "aed581", "7986cb", "ffb74d", "a1887f", "90a4ae"
 }
 
+-- What a switched-off row is drawn in: grey throughout, the item's quality colour included, so a
+-- row that does not count reads as one without having to be read.
+--
+-- A shade darker than m.colors.grey, which is what the dash and the "Not soft-ressing" note are
+-- set in. Those are ordinary things the list has nothing to say about; this is a row that has been
+-- struck out, and it sits below them rather than alongside.
+local grey_code = "|cff656565"
+
+-- Every colour already in the text -- a class colour, an item's quality, a boss's own -- replaced
+-- rather than wrapped. A wrapping code would lose to the inner one and change nothing.
+---@param text string
+---@return string
+local function greyed( text )
+  local result, replaced = string.gsub( text, "|c%x%x%x%x%x%x%x%x", grey_code )
+
+  return replaced > 0 and result or string.format( "%s%s|r", grey_code, text )
+end
+
 ---@param boss string?
 ---@return string
 local function colorize_boss( boss )
@@ -230,7 +248,9 @@ end
 ---@param text_width fun( text: string ): number -- how wide text draws in the list's font
 ---@param max_rows fun(): number -- rows shown before the list scrolls; read on every redraw
 ---@param preview fun( player: RollingPlayer, item: Item, strategy: RollingStrategyType ): number? -- ctx.roll_modifier.preview
-function M.new( popup_builder, db, content_transformer, softres, group_roster, ace_timer, text_width, max_rows, preview )
+---@param disabled_entries SoftResDisabledEntries -- which reservations the checkboxes have switched off
+function M.new( popup_builder, db, content_transformer, softres, group_roster, ace_timer, text_width, max_rows, preview,
+                disabled_entries )
   ---@type ListPopup
   local list
 
@@ -277,27 +297,78 @@ function M.new( popup_builder, db, content_transformer, softres, group_roster, a
           -- the gap as well.
           local adjustment = preview( roller, item, m.Types.RollingStrategy.SoftResRoll )
 
-          -- Grouped, the extra rolls are a 2x in front of one row. Ungrouped, they are the rows
-          -- themselves -- one per entry on the imported list, each of them a single roll, so
-          -- nothing needs the count gutter and the item column loses it.
-          local rolls = roller.rolls or 1
-          local row_count = group_items and 1 or math.max( rolls, 1 )
+          -- Bound rather than read off `roller` inside the callbacks below: the roster is walked
+          -- again on every redraw, so the table these close over is gone by the time one is
+          -- clicked.
+          local name = roller.name
+          local rolls = math.max( roller.rolls or 1, 1 )
+          local disabled = disabled_entries.disabled_count( item_id, name, rolls )
 
-          for _ = 1, row_count do
+          -- Grouped, the extra rolls are a 2x in front of one row, and the count is what is left
+          -- on -- two reservations with one switched off read as one roll, because that is what
+          -- the player has. Ungrouped, the rolls are the rows themselves, one per entry on the
+          -- imported list, each with a box of its own and none of them needing the count gutter.
+          local row_count = group_items and 1 or rolls
+          local enabled_rolls = rolls - disabled
+
+          for ordinal = 1, row_count do
+            local enabled
+
+            if group_items then
+              enabled = disabled == 0 and "on" or enabled_rolls == 0 and "off" or "partial"
+            else
+              enabled = disabled_entries.is_disabled( item_id, name, ordinal ) and "off" or "on"
+            end
+
+            -- Only a row with nothing left on it. A partial one still has rolls that count, and
+            -- greying it would say otherwise.
+            local off = enabled == "off"
+
+            -- The count is the rolls still on, so switching one of two off drops the 2x. A row
+            -- with nothing left on shows what the list said instead: greyed out and worth
+            -- nothing, but still visibly a double reservation rather than a single one.
+            local shown_rolls = off and rolls or enabled_rolls
+
+            ---@param text string?
+            ---@return string?
+            local function shade( text )
+              if not text or not off then return text end
+
+              return greyed( text )
+            end
+
             table.insert( entries, {
               row = {
-                player = player and m.colorize_player_by_class( player.name, player.class ) or m.colors.red( roller.name ),
-                item_link = link or m.colors.grey( "item:" .. item_id ),
+                player = shade( player and m.colorize_player_by_class( player.name, player.class ) or
+                  m.colors.red( roller.name ) ),
+                item_link = shade( link or m.colors.grey( "item:" .. item_id ) ),
                 item_tooltip_link = link and m.ItemUtils.get_tooltip_link( link ),
-                count = group_items and rolls > 1 and string.format( "%dx", rolls ) or nil,
-                adjustment = adjustment and
-                    m.colors.white( string.format( " %s%d", adjustment > 0 and "+" or "-", math.abs( adjustment ) ) ) or nil
+                -- The real link, kept back for the shift-click even while the row draws a grey
+                -- one: what is greyed out here is still an epic in somebody's chat window.
+                item_chat_link = off and link or nil,
+                count = group_items and shown_rolls > 1 and shade( string.format( "%dx", shown_rolls ) ) or nil,
+                adjustment = shade( adjustment and
+                  m.colors.white( string.format( " %s%d", adjustment > 0 and "+" or "-", math.abs( adjustment ) ) ) or nil ),
+                enabled = enabled,
+                -- A ticked box switches off, and anything else -- unticked, or the grey that says
+                -- only some of a grouped row is on -- switches on. That is the usual way round for
+                -- a box with a third state: a partial one fills before it empties.
+                on_toggle_enabled = group_items and function()
+                  disabled_entries.set_all( item_id, name, rolls, enabled ~= "on" )
+                  list.refresh_if_visible()
+                end or function()
+                  disabled_entries.set( item_id, name, ordinal, enabled == "off" )
+                  list.refresh_if_visible()
+                end
               },
               boss = boss,
+              disabled = off,
               keys = {
                 player = roller.name,
                 item = link and m.ItemUtils.get_item_name( link ) or tostring( item_id ),
-                rolls = group_items and rolls or 1,
+                -- What the column shows, which grouped is the rolls still on -- or, for a row
+                -- with none left, the ones the list said it had.
+                rolls = group_items and shown_rolls or 1,
                 boss = boss_sort_key( boss )
               }
             } )
@@ -347,6 +418,7 @@ function M.new( popup_builder, db, content_transformer, softres, group_roster, a
     for _, entry in ipairs( entries ) do
       local row = entry.row
       row.boss = colorize_boss( entry.boss )
+      if entry.disabled then row.boss = greyed( row.boss ) end
 
       widen( "player", row.player )
       widen( "count", row.count )

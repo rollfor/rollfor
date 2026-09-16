@@ -29,6 +29,17 @@ local column_gap = 16
 -- link -- and the Item heading above them -- starts at the same x whether it has a count or not.
 local count_gap = 3
 
+-- Every row starts with the box that switches its reservation off, in a gutter of its own left of
+-- the Player column. Fixed width rather than measured: there is nothing in it but the box, and no
+-- heading over it, since there is nothing about a checkbox to sort by.
+local row_checkbox_size = 12
+local row_checkbox_gap = 5
+
+-- A grouped row with some of its rolls switched off is drawn as a greyed tick rather than as a
+-- third texture: it reads as "on, but not entirely", which is what it means.
+local tick_color = { 1, 1, 1 }
+local partial_tick_color = { 0.5, 0.5, 0.5 }
+
 local columns = {
   { key = "player", title = "Player" },
   { key = "item", title = "Item" },
@@ -106,6 +117,7 @@ end
 ---@field inset number -- where the heading and the content start, from the column's left edge
 
 ---@class SoftResListLayout
+---@field checkbox SoftResListColumnLayout -- the row's own box; the header leaves it empty
 ---@field player SoftResListColumnLayout
 ---@field item SoftResListColumnLayout
 ---@field boss SoftResListColumnLayout
@@ -117,7 +129,11 @@ end
 ---@return SoftResListLayout
 local function layout( widths )
   local result = {}
-  local x = 0
+
+  -- The checkbox gutter is part of every line, the header included, which is what keeps the
+  -- headings over the cells they name rather than over the boxes.
+  result.checkbox = { x = 0, width = row_checkbox_size, inset = 0 }
+  local x = row_checkbox_size + row_checkbox_gap
 
   for _, column in ipairs( columns ) do
     local inset = column.key == "item" and widths.count > 0 and widths.count + count_gap or 0
@@ -178,6 +194,26 @@ local function checkbox( parent )
   end )
 
   return container
+end
+
+-- The box at the head of a row, which switches that reservation off. Bare, with no label: what it
+-- refers to is the row it is on.
+--
+-- The client flips a CheckButton's own state on click; this hands the click on and lets the
+-- redraw that follows put the box where the window says it goes. Left to itself it would have no
+-- way to land on the greyed third state, and a box that disagreed with the list under it would be
+-- worse than one that lagged a frame.
+---@param parent table
+local function row_checkbox( parent )
+  local button = m.api.CreateFrame( "CheckButton", nil, parent, "UICheckButtonTemplate" )
+  button:SetWidth( row_checkbox_size )
+  button:SetHeight( row_checkbox_size )
+
+  button:SetScript( "OnClick", function()
+    if button.on_click then button.on_click() end
+  end )
+
+  return button
 end
 
 -- The line above the list that is never scrolled: the checkboxes, then a heading per column.
@@ -315,6 +351,11 @@ function M.softres_list_row( parent )
   local player = cell( container )
   local boss = cell( container )
 
+  -- Whether this reservation counts. Created for every row, including the ones that have nothing
+  -- to switch off: FrameBuilder recycles row frames, so a row that built its box conditionally
+  -- would hand it to whoever occupied the frame next.
+  local enabled = row_checkbox( container )
+
   -- Drawn here rather than by the link, which puts its own count inline and so pushes the name
   -- right by however wide the count is.
   local count = cell( container, "RIGHT" )
@@ -342,6 +383,8 @@ function M.softres_list_row( parent )
     local item_column = columns_layout.item
     container:SetWidth( columns_layout.width )
 
+    enabled:ClearAllPoints()
+    enabled:SetPoint( "LEFT", container, "LEFT", columns_layout.checkbox.x, 0 )
     place( player, container, columns_layout.player.x, columns_layout.player.width )
     place( count, container, item_column.x, row.widths.count )
     place( boss, container, columns_layout.boss.x, columns_layout.boss.width )
@@ -350,9 +393,26 @@ function M.softres_list_row( parent )
     adjustment:ClearAllPoints()
     adjustment:SetPoint( "LEFT", item, "RIGHT", 0, 0 )
 
+    -- A player who reserved nothing has no entry to switch off, so the gutter is left empty --
+    -- the space stays, or the columns would step left on that row alone.
+    if row.enabled then
+      enabled:Show()
+      enabled:SetChecked( row.enabled ~= "off" )
+      enabled.on_click = row.on_toggle_enabled
+
+      local tick = enabled.GetCheckedTexture and enabled:GetCheckedTexture()
+
+      if tick then
+        tick:SetVertexColor( unpack( row.enabled == "partial" and partial_tick_color or tick_color ) )
+      end
+    else
+      enabled:Hide()
+      enabled.on_click = nil
+    end
+
     player:SetText( row.player )
     count:SetText( row.count or "" )
-    item:SetItem( { link = row.item_link }, row.item_tooltip_link )
+    item:SetItem( { link = row.item_link, chat_link = row.item_chat_link }, row.item_tooltip_link )
     adjustment:SetText( row.adjustment or "" )
     boss:SetText( row.boss )
   end

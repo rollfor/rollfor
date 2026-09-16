@@ -146,13 +146,18 @@ local function bind_link_scripts( container )
   container:SetScript( "OnClick", function()
     if not container.tooltip_link then return end
 
+    -- What is drawn is not always what should leave the window. A list that greys a link out to
+    -- say it doesn't count is still pointing at an epic, and pasting our grey into somebody's
+    -- chat would call it a common one -- so a caller may hand over the real link separately.
+    local link = container.chat_link or container.text:GetText()
+
     if m.is_ctrl_key_down() then
-      m.api.DressUpItemLink( container.text:GetText() )
+      m.api.DressUpItemLink( link )
       return
     end
 
     if m.is_shift_key_down() then
-      m.link_item_in_chat( container.text:GetText() )
+      m.link_item_in_chat( link )
       return
     end
 
@@ -167,6 +172,9 @@ end
 --
 -- The count is not the icon's business, so it stays: it is how many of this item there are, drawn
 -- in front of the name as text.
+--
+-- SetItem takes `link` (what is drawn) and optionally `chat_link` (what a shift-click pastes and
+-- ctrl-click dresses up, when the two differ -- see bind_link_scripts).
 ---@param parent table
 ---@param text string?
 function M.item_link( parent, text )
@@ -199,6 +207,9 @@ function M.item_link( parent, text )
     count = i.count or 0
     container.tooltip_link = tooltip_link
     container.tooltip_position = i.tooltip_position
+    -- Written on every call, nil included: line frames are recycled, and a link left over from
+    -- the previous occupant would paste the wrong item entirely.
+    container.chat_link = i.chat_link
 
     container.text:SetText( i.link )
     container.count:SetText( count > 1 and hl( string.format( "%sx", count ) ) or nil )

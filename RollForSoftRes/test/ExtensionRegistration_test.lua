@@ -146,7 +146,7 @@ ChainPlacementSpec = {}
 function ChainPlacementSpec:should_contribute_the_backbone_in_order()
   local chain = enable_into( Chain.new( "softres" ) )
 
-  eq( chain.names(), { "matched_name", "awarded_loot", "present_players" } )
+  eq( chain.names(), { "matched_name", "awarded_loot", "present_players", "disabled_entries" } )
 end
 
 function ChainPlacementSpec:should_wrap_the_awarded_loot_record_from_inside_the_factory()
@@ -177,6 +177,10 @@ function ChainPlacementSpec:should_declare_the_unfiltered_tap_before_present_pla
 
   eq( position.matched_name < position.awarded_loot, true )
   eq( position.awarded_loot < position.present_players, true )
+
+  -- The list window's checkboxes come after the tap, not before it: the window draws a box for
+  -- every entry, including the ones it has switched off, and reads the tap to find them.
+  eq( position.present_players < position.disabled_entries, true )
 end
 
 -- Addons load alphabetically, so RollForNetherVortex declares its anchors before this
@@ -194,7 +198,7 @@ function ChainPlacementSpec:should_accept_a_link_anchored_to_the_backbone_before
 
   enable_into( chain )
 
-  eq( chain.names(), { "matched_name", "awarded_loot", "early_bird", "present_players" } )
+  eq( chain.names(), { "matched_name", "awarded_loot", "early_bird", "present_players", "disabled_entries" } )
 end
 
 os.exit( lu.LuaUnit.run() )

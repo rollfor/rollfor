@@ -43,13 +43,51 @@ function SourceSpec:should_have_left_core_with_no_builtin_of_its_own()
   eq( rf.softres_gui, nil )
 end
 
+DisabledEntriesSpec = {}
+
+-- Where the list window's checkboxes are written down. Reached through the saved variables rather
+-- than through a handle on the addon, because that is the fact worth pinning: these survive a
+-- reload, and a reload is the only reason they are on disk at all.
+local function switches()
+  return RollForCharDb.extension_softres_disabled_entries
+end
+
+local one_switched_off = { [ 123 ] = { Psikutas = { true } } }
+
+-- A list a human just pasted in is the raid's agreement now, so it arrives with every entry on.
+function DisabledEntriesSpec:should_switch_everything_back_on_after_an_interactive_import()
+  switches().entries = { [ 123 ] = { Psikutas = { true } } }
+
+  rf.event_bus.notify( "softres_imported", { source = "softres", interactive = true } )
+
+  eq( switches().entries, {} )
+end
+
+-- Login re-imports the string already on disk, which is not a new agreement. If this reset too,
+-- no entry could ever stay switched off past a /reload.
+function DisabledEntriesSpec:should_keep_them_through_the_login_re_import()
+  switches().entries = { [ 123 ] = { Psikutas = { true } } }
+
+  rf.event_bus.notify( "softres_imported", { source = "softres", interactive = false } )
+
+  eq( switches().entries, one_switched_off )
+end
+
+function DisabledEntriesSpec:should_switch_everything_back_on_when_the_list_is_cleared()
+  switches().entries = { [ 123 ] = { Psikutas = { true } } }
+
+  rf.event_bus.notify( "softres_cleared", { source = "softres" } )
+
+  eq( switches().entries, {} )
+end
+
 ChainSpec = {}
 
 -- The backbone is this addon's now, and core contributes nothing on top of it: the whole
 -- soft-res chain is the extension's.
 function ChainSpec:should_own_the_whole_backbone()
   eq( rf.softres_chain.names(),
-    { "matched_name", "awarded_loot", "present_players" } )
+    { "matched_name", "awarded_loot", "present_players", "disabled_entries" } )
 end
 
 function ChainSpec:should_expose_the_unfiltered_tap_to_core()

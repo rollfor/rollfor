@@ -24,6 +24,10 @@ u.load_extension()
 local popup_builder = require( "mocks/PopupBuilder" )
 local SoftResListFrame = RollForSoftRes.SoftResListFrame
 local Transformer = RollForSoftRes.SoftResListContentTransformer
+local DisabledEntries = RollForSoftRes.SoftResDisabledEntries
+
+-- Nothing in these specs renames anybody, so a reservation's imported name is the in-game one.
+local name_matcher = { get_softres_name = function( name ) return name end }
 
 local TSUNAMI = 30627     -- Leotheras the Blind
 local FATHOMSTONE = 30049 -- Hydross the Unstable
@@ -117,6 +121,11 @@ local function window( reservations, cached )
   local real = Transformer.new()
   local scheduled = {}
 
+  -- The real thing rather than a stub: which entries are off is half of what the rows say, and a
+  -- stub would only be asserting that the window asked.
+  local disabled_db = {}
+  local disabled_entries = DisabledEntries.new( disabled_db, name_matcher )
+
   local ace_timer = {
     ScheduleTimer = function( _, callback, delay )
       table.insert( scheduled, { callback = callback, delay = delay } )
@@ -130,9 +139,12 @@ local function window( reservations, cached )
 
       return content
     end
-  }, softres( reservations ), group_roster, ace_timer, text_width, function() return 15 end, preview )
+  }, softres( reservations ), group_roster, ace_timer, text_width, function() return 15 end, preview,
+    disabled_entries )
 
   frame.db = db
+  frame.disabled_entries = disabled_entries
+  frame.disabled_db = disabled_db
   frame.model = function() return model end
   frame.scheduled = function() return scheduled end
 
@@ -156,7 +168,7 @@ local function window( reservations, cached )
     for _, row in ipairs( frame.lines( Transformer.row_type ) ) do
       local is_link = string.find( row.item_link, "|H", 1, true )
       local item = is_link and m.ItemUtils.get_item_name( row.item_link ) or (u.decolorize( row.item_link ))
-      if row.count then item = string.format( "%s %s", row.count, item ) end
+      if row.count then item = string.format( "%s %s", (u.decolorize( row.count )), item ) end
       table.insert( result, { u.decolorize( row.player ), item, (u.decolorize( row.boss )) } )
     end
 
@@ -175,6 +187,23 @@ local function window( reservations, cached )
   end
 
   frame.header = function() return frame.lines( Transformer.header_type )[ 1 ] end
+
+  -- Clicking the box at the head of the nth reservation row, the way the widget does.
+  ---@param index number
+  frame.toggle = function( index )
+    frame.reservations()[ index ].on_toggle_enabled()
+  end
+
+  -- Each reservation row's checkbox state, in the order the rows are drawn.
+  frame.boxes = function()
+    local result = {}
+
+    for _, row in ipairs( frame.reservations() ) do
+      table.insert( result, row.enabled )
+    end
+
+    return result
+  end
 
   return frame
 end
@@ -365,6 +394,273 @@ function GroupItemsSpec:should_group_again_once_the_box_is_reticked()
   eq( frame.db.group_items, true )
   eq( #frame.reservations(), 1 )
   eq( frame.reservations()[ 1 ].count, "2x" )
+end
+
+DisabledEntriesSpec = {}
+
+function DisabledEntriesSpec:should_have_every_entry_enabled_to_start_with()
+  local frame = window( { { TSUNAMI, "Psikutas", 2 }, { ROBE, "Obszczymucha" } } )
+
+  frame.show()
+
+  eq( frame.boxes(), { "on", "on" } )
+end
+
+-- A player who reserved nothing has no entry to switch off, so there is no box on that row.
+function DisabledEntriesSpec:should_give_no_box_to_a_player_who_reserved_nothing()
+  local frame = window( { { TSUNAMI, "Psikutas" } } )
+
+  frame.show()
+
+  local rows = frame.lines( Transformer.row_type )
+  eq( u.decolorize( rows[ 1 ].item_link ), "Not soft-ressing" )
+  eq( rows[ 1 ].enabled, nil )
+  eq( rows[ 1 ].on_toggle_enabled, nil )
+end
+
+-- Grouped, the box speaks for the whole reservation: one click takes both rolls off.
+function DisabledEntriesSpec:should_switch_every_roll_off_from_a_grouped_row()
+  local frame = window( { { TSUNAMI, "Psikutas", 2 } } )
+
+  frame.show()
+  frame.toggle( 1 )
+
+  eq( frame.boxes(), { "off" } )
+  eq( frame.disabled_entries.disabled_count( TSUNAMI, "Psikutas", 2 ), 2 )
+end
+
+function DisabledEntriesSpec:should_switch_them_all_back_on()
+  local frame = window( { { TSUNAMI, "Psikutas", 2 } } )
+
+  frame.show()
+  frame.toggle( 1 )
+  frame.toggle( 1 )
+
+  eq( frame.boxes(), { "on" } )
+  eq( frame.disabled_entries.disabled_count( TSUNAMI, "Psikutas", 2 ), 0 )
+end
+
+-- Ungrouped, each roll has a box of its own, and the one that was clicked is the one that goes
+-- off -- the tick does not slide up to the top of the run.
+function DisabledEntriesSpec:should_switch_off_one_roll_at_a_time_when_ungrouped()
+  local frame = window( { { TSUNAMI, "Psikutas", 3 } } )
+
+  frame.show()
+  frame.model().on_toggle_group_items( false )
+  frame.toggle( 2 )
+
+  eq( frame.boxes(), { "on", "off", "on" } )
+  eq( frame.disabled_entries.is_disabled( TSUNAMI, "Psikutas", 2 ), true )
+  eq( frame.disabled_entries.is_disabled( TSUNAMI, "Psikutas", 1 ), false )
+end
+
+-- The heart of it: a reservation with one of its two rolls off is worth one roll, and the
+-- grouped row says so rather than still claiming 2x.
+function DisabledEntriesSpec:should_count_only_the_rolls_left_on_when_grouped()
+  local frame = window( { { TSUNAMI, "Psikutas", 2 } } )
+
+  frame.show()
+  frame.model().on_toggle_group_items( false )
+  frame.toggle( 1 )
+  frame.model().on_toggle_group_items( true )
+
+  eq( frame.boxes(), { "partial" } )
+  eq( frame.rows(), {
+    { "Obszczymucha", "Not soft-ressing", "-" },
+    { "Psikutas", "Tsunami Talisman", "Leotheras the Blind" }
+  } )
+end
+
+function DisabledEntriesSpec:should_still_show_a_count_when_more_than_one_roll_is_left_on()
+  local frame = window( { { TSUNAMI, "Psikutas", 3 } } )
+
+  frame.show()
+  frame.model().on_toggle_group_items( false )
+  frame.toggle( 1 )
+  frame.model().on_toggle_group_items( true )
+
+  eq( frame.boxes(), { "partial" } )
+  eq( frame.reservations()[ 1 ].count, "2x" )
+end
+
+-- A partial box fills before it empties, the usual way round for a box with a third state.
+function DisabledEntriesSpec:should_switch_a_partial_row_fully_on_when_clicked()
+  local frame = window( { { TSUNAMI, "Psikutas", 2 } } )
+
+  frame.show()
+  frame.model().on_toggle_group_items( false )
+  frame.toggle( 1 )
+  frame.model().on_toggle_group_items( true )
+  frame.toggle( 1 )
+
+  eq( frame.boxes(), { "on" } )
+  eq( frame.reservations()[ 1 ].count, "2x" )
+end
+
+-- Every roll off is not the same as a row that is gone: the window still lists it, because the
+-- box that switches it back on is on that row.
+function DisabledEntriesSpec:should_keep_listing_a_reservation_with_everything_switched_off()
+  local frame = window( { { TSUNAMI, "Psikutas", 2 } } )
+
+  frame.show()
+  frame.toggle( 1 )
+
+  eq( frame.rows(), {
+    { "Obszczymucha", "Not soft-ressing", "-" },
+    { "Psikutas", "2x Tsunami Talisman", "Leotheras the Blind" }
+  } )
+end
+
+-- With nothing left on there is no live count to show, so the row shows what the list said it
+-- was. Without it a double reservation switched off would read as a single one.
+function DisabledEntriesSpec:should_show_the_imported_count_once_every_roll_is_off()
+  local frame = window( { { TSUNAMI, "Psikutas", 2 } } )
+
+  frame.show()
+  frame.toggle( 1 )
+
+  eq( u.decolorize( frame.reservations()[ 1 ].count ), "2x" )
+end
+
+function DisabledEntriesSpec:should_show_no_count_for_a_single_reservation_switched_off()
+  local frame = window( { { TSUNAMI, "Psikutas" } } )
+
+  frame.show()
+  frame.toggle( 1 )
+
+  eq( frame.reservations()[ 1 ].count, nil )
+end
+
+GreyingSpec = {}
+
+-- SoftResListFrame's own shade, a step darker than m.colors.grey.
+local grey = "|cff656565"
+
+---@param text string?
+local function is_grey( text )
+  return text and string.sub( text, 1, 10 ) == grey and not string.find( text, "|c", 11, true ) or false
+end
+
+-- A row that does not count is drawn as one: the class colour, the item's quality and the boss's
+-- own colour all go, or the eye has nothing to go on but a small box at the far left.
+function GreyingSpec:should_grey_the_whole_row_when_every_roll_is_off()
+  local frame = window( { { TSUNAMI, "Psikutas" } } )
+
+  frame.show()
+  frame.toggle( 1 )
+
+  local row = frame.reservations()[ 1 ]
+  eq( { is_grey( row.player ), is_grey( row.item_link ), is_grey( row.boss ) }, { true, true, true } )
+end
+
+function GreyingSpec:should_grey_the_count_and_the_modifier_too()
+  bonuses = { Psikutas = { [ TSUNAMI ] = 30 } }
+  local frame = window( { { TSUNAMI, "Psikutas", 2 } } )
+
+  frame.show()
+  frame.toggle( 1 )
+
+  local row = frame.reservations()[ 1 ]
+  eq( { is_grey( row.count ), is_grey( row.adjustment ) }, { true, true } )
+  bonuses = {}
+end
+
+-- A partial row still has rolls that count, so it keeps its colours; only the box says otherwise.
+function GreyingSpec:should_leave_a_partially_switched_off_row_in_its_own_colours()
+  local frame = window( { { TSUNAMI, "Psikutas", 2 } } )
+
+  frame.show()
+  frame.model().on_toggle_group_items( false )
+  frame.toggle( 1 )
+  frame.model().on_toggle_group_items( true )
+
+  local row = frame.reservations()[ 1 ]
+  eq( row.enabled, "partial" )
+  eq( { is_grey( row.player ), is_grey( row.item_link ) }, { false, false } )
+end
+
+function GreyingSpec:should_grey_only_the_row_that_is_off_when_ungrouped()
+  local frame = window( { { TSUNAMI, "Psikutas", 2 } } )
+
+  frame.show()
+  frame.model().on_toggle_group_items( false )
+  frame.toggle( 2 )
+
+  local rows = frame.reservations()
+  eq( { is_grey( rows[ 1 ].item_link ), is_grey( rows[ 2 ].item_link ) }, { false, true } )
+end
+
+function GreyingSpec:should_put_the_colours_back_when_switched_on_again()
+  local frame = window( { { TSUNAMI, "Psikutas" } } )
+
+  frame.show()
+  frame.toggle( 1 )
+  frame.toggle( 1 )
+
+  local row = frame.reservations()[ 1 ]
+  eq( is_grey( row.item_link ), false )
+  eq( row.item_link, u.item_link( "Tsunami Talisman", TSUNAMI ) )
+end
+
+-- Greyed on the window, but still an epic in somebody's chat window: the shift-click gets the
+-- link the client gave us, not ours with the colour taken out of it.
+function GreyingSpec:should_keep_the_real_link_for_a_shift_click()
+  local frame = window( { { TSUNAMI, "Psikutas" } } )
+
+  frame.show()
+  frame.toggle( 1 )
+
+  eq( frame.reservations()[ 1 ].item_chat_link, u.item_link( "Tsunami Talisman", TSUNAMI ) )
+end
+
+function GreyingSpec:should_hand_over_no_separate_link_while_the_row_is_on()
+  local frame = window( { { TSUNAMI, "Psikutas" } } )
+
+  frame.show()
+
+  eq( frame.reservations()[ 1 ].item_chat_link, nil )
+end
+
+-- Colour codes draw nothing, so greying a row cannot move a column.
+function GreyingSpec:should_measure_a_greyed_row_the_same_as_any_other()
+  local frame = window( { { TSUNAMI, "Psikutas" }, { ROBE, "Obszczymucha" } } )
+
+  frame.show()
+  local before = frame.model().widths
+  local widths = { player = before.player, count = before.count, item = before.item, boss = before.boss }
+
+  frame.toggle( 1 )
+
+  eq( frame.model().widths, widths )
+end
+
+-- Switched off per player, not per item: taking Psikutas' roll away leaves Obszczymucha's alone.
+function DisabledEntriesSpec:should_switch_off_one_players_entry_only()
+  local frame = window( { { TSUNAMI, "Psikutas" }, { TSUNAMI, "Obszczymucha" } } )
+
+  frame.show()
+  frame.toggle( 1 ) -- Obszczymucha sorts first
+
+  eq( frame.boxes(), { "off", "on" } )
+end
+
+-- The count is what the item column shows, so an item whose count changed sorts by the new one.
+function DisabledEntriesSpec:should_sort_the_item_column_by_the_count_that_is_left()
+  local frame = window( { { TSUNAMI, "Psikutas", 2 }, { TSUNAMI, "Obszczymucha", 2 } } )
+
+  frame.show()
+  frame.model().on_sort( "item" )
+  eq( frame.rows()[ 1 ], { "Obszczymucha", "2x Tsunami Talisman", "Leotheras the Blind" } )
+
+  frame.model().on_toggle_group_items( false )
+  frame.toggle( 1 ) -- one of Obszczymucha's two
+  frame.model().on_toggle_group_items( true )
+
+  -- Obszczymucha is down to one roll, so Psikutas' two sort after them rather than before.
+  eq( frame.rows(), {
+    { "Obszczymucha", "Tsunami Talisman", "Leotheras the Blind" },
+    { "Psikutas", "2x Tsunami Talisman", "Leotheras the Blind" }
+  } )
 end
 
 SortSpec = {}

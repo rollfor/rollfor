@@ -33,12 +33,25 @@ M.header_type = "softres_list_header"
 ---@class SoftResListFrameRow
 ---@field player string -- already coloured
 ---@field count string? -- 2x, drawn left of the item; nil for a single roll, for a player who
---- reserved nothing, and for every row while the list is ungrouped
+--- reserved nothing, and for every row while the list is ungrouped. Grouped, it counts the rolls
+--- still switched on -- or, once none are, the rolls the imported list said there were
 ---@field item_link string -- a placeholder while the client doesn't have the item, or a note for a
 --- player who reserved nothing
 ---@field item_tooltip_link TooltipItemLink?
+---@field item_chat_link string? -- the ungreyed link a shift-click pastes, when the row draws a
+--- greyed one; nil when what is drawn is what should be pasted
 ---@field adjustment string? -- " +30", drawn right after the item link; nil when no modifier adds anything
 ---@field boss string -- already coloured
+---@field enabled SoftResListRowState? -- the checkbox at the head of the row; nil for a player who
+--- reserved nothing, who has no entry to switch off and so no box
+---@field on_toggle_enabled fun()? -- what clicking that box asks for
+
+-- Whether a row's reservations count. "partial" is a grouped row some but not all of whose rolls
+-- are switched off, drawn as a greyed tick.
+---@alias SoftResListRowState
+---| "on"
+---| "off"
+---| "partial"
 
 -- How wide the widest entry in each column draws, over the whole list. Every line of a redraw gets
 -- the same one, so the header and the rows lay their columns out alike.
@@ -86,9 +99,12 @@ function M.new()
         player = row.player,
         item_link = row.item_link,
         item_tooltip_link = row.item_tooltip_link,
+        item_chat_link = row.item_chat_link,
         count = row.count,
         adjustment = row.adjustment,
         boss = row.boss,
+        enabled = row.enabled,
+        on_toggle_enabled = row.on_toggle_enabled,
         widths = data.widths,
         padding = row_gap
       } )

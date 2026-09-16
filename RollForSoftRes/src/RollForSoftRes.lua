@@ -28,6 +28,7 @@ local hl = m.colors.hl
 -- exists to build against until between the two.
 local store
 local name_matcher
+local disabled_entries
 
 -- What a data provider is. It owns no soft-res data: the list belongs to this addon
 -- whoever decoded it, so a provider is a decoder and four strings.
@@ -130,6 +131,9 @@ local function on_enable( ctx )
     sr.NameAutoMatcher.new( ctx.group_roster, store, 0.57, 0.4 ),
     function() ctx.minimap.refresh() end )
 
+  -- After the matcher, which it asks for the name a player's reservations were imported under.
+  disabled_entries = sr.SoftResDisabledEntries.new( ctx.db( "disabled_entries" ), name_matcher )
+
   -- One registration, unconditionally. Core's rule that exactly one source may register is
   -- now trivially satisfied instead of being a race between two addons: the providers
   -- register with us, not with core.
@@ -182,6 +186,14 @@ local function on_enable( ctx )
   -- SoftResCheck and the roll simulator both want exactly this.
   ctx.softres_chain.tap( { name = "unfiltered", before = "present_players" } )
 
+  -- The list window's checkboxes, last of all -- after the tap, so the window that draws the
+  -- boxes still sees the entries they switch off. See SoftResDisabledEntriesDecorator.
+  ctx.softres_chain.add( {
+    name = "disabled_entries",
+    after = "present_players",
+    factory = function( inner ) return sr.SoftResDisabledEntriesDecorator.new( disabled_entries, inner ) end
+  } )
+
   -- Keeps name matching current as people join and leave.
   ctx.on_group_changed( function() name_matcher.auto_match() end )
 end
@@ -219,15 +231,25 @@ local function on_ready( ctx )
   local list_frame = sr.SoftResListFrame.new(
     ctx.popup_builder(), ctx.db( "list_frame" ), sr.SoftResListContentTransformer.new(),
     ctx.softres_tap( "unfiltered" ), ctx.group_roster, ctx.ace_timer, sr.SoftResListWidgets.text_width,
-    ctx.config[ sr.SoftResListFrame.rows_setting.key ], ctx.roll_modifier.preview )
+    ctx.config[ sr.SoftResListFrame.rows_setting.key ], ctx.roll_modifier.preview, disabled_entries )
 
   -- The list is read fresh on every redraw, so these only have to say something changed. Group
   -- changes come after on_enable's auto_match, which registered first, so names are matched by
   -- the time the window redraws.
   ctx.on_group_changed( list_frame.refresh_if_visible )
   ctx.config.subscribe( sr.SoftResListFrame.rows_setting.key, list_frame.refresh_if_visible )
-  ctx.event_bus.subscribe( "softres_imported", list_frame.refresh_if_visible )
-  ctx.event_bus.subscribe( "softres_cleared", list_frame.refresh_if_visible )
+  -- A list a human just pasted in is the raid's agreement now, so it arrives with every entry on;
+  -- the switches belonged to the list before it. The login re-import is not that -- it re-decodes
+  -- the string already on disk -- so it leaves them alone, and a disabled entry survives a reload.
+  ctx.event_bus.subscribe( "softres_imported", function( event )
+    if event and event.interactive then disabled_entries.clear() end
+    list_frame.refresh_if_visible()
+  end )
+
+  ctx.event_bus.subscribe( "softres_cleared", function()
+    disabled_entries.clear()
+    list_frame.refresh_if_visible()
+  end )
   ctx.get( "roll_controller" ).subscribe( "loot_awarded", list_frame.refresh_if_visible )
   ctx.get( "roll_controller" ).subscribe( "loot_unawarded", list_frame.refresh_if_visible )
 
