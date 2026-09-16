@@ -249,8 +249,9 @@ end
 ---@param max_rows fun(): number -- rows shown before the list scrolls; read on every redraw
 ---@param preview fun( player: RollingPlayer, item: Item, strategy: RollingStrategyType ): number? -- ctx.roll_modifier.preview
 ---@param disabled_entries SoftResDisabledEntries -- which reservations the checkboxes have switched off
+---@param chat Chat -- where the Announce missing button says who they are
 function M.new( popup_builder, db, content_transformer, softres, group_roster, ace_timer, text_width, max_rows, preview,
-                disabled_entries )
+                disabled_entries, chat )
   ---@type ListPopup
   local list
 
@@ -377,10 +378,15 @@ function M.new( popup_builder, db, content_transformer, softres, group_roster, a
       end
     end
 
+    -- Who the Announce missing button names, alphabetically so the message reads the same however
+    -- the roster came back.
+    local missing = {}
+
     -- Only once there is a list to be missing from. Before an import everybody would be on it.
     if #items > 0 then
       for key, player in pairs( group ) do
         if not softressing[ key ] then
+          table.insert( missing, player.name )
           table.insert( entries, {
             row = {
               player = m.colorize_player_by_class( player.name, player.class ),
@@ -428,7 +434,15 @@ function M.new( popup_builder, db, content_transformer, softres, group_roster, a
       table.insert( rows, row )
     end
 
+    table.sort( missing )
+
     return {
+      -- nil when there is nobody to name, which is what hides the button.
+      on_announce_missing = #missing > 0 and function()
+        for _, message in ipairs( m.split_message( "Missing SR: ", missing ) ) do
+          chat.announce( message )
+        end
+      end or nil,
       show_absent = db.show_absent == true,
       on_toggle_absent = function( checked )
         db.show_absent = checked

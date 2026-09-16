@@ -62,6 +62,19 @@ local checkbox_y = 2
 local absent_checkbox_text = "Show players not in the group"
 local group_checkbox_text = "Group items"
 
+-- The button that names everybody in the group who reserved nothing, on the checkboxes' line at the
+-- far right, just left of the window's X. The client's own panel button in the list's small font,
+-- as wide as its label and its end caps.
+local announce_button_text = "Announce missing"
+local announce_button_height = 18
+local announce_button_caps = 16
+
+-- How far the X reaches into the header from its right, since the button stops short of it rather
+-- than of the header's edge. The X is ListPopup's close button: 32 pixels scaled by 0.7, 6 in from
+-- the window's edge, which puts its left at 28.4; the header's edge is half PopupBuilder's side
+-- margin of 35 in, at 17.5.
+local close_button_intrusion = 11
+
 -- Blizzard's own sort arrow, at the size and with the flip the auction house uses
 -- (SortButton_UpdateArrow in Blizzard_AuctionUI).
 local sort_arrow_texture = "Interface\\Buttons\\UI-SortArrow"
@@ -102,6 +115,11 @@ function M.text_width( text )
   measure:SetText( text )
 
   return measure:GetStringWidth()
+end
+
+---@return number
+local function announce_button_width()
+  return M.text_width( announce_button_text ) + announce_button_caps
 end
 
 -- How wide a checkbox and its label draw together.
@@ -145,9 +163,10 @@ local function layout( widths )
   end
 
   -- The checkboxes sit over the columns, so they are what set the width when the columns are
-  -- narrower.
+  -- narrower. The Announce missing button shares their line, and its room is kept whether it is
+  -- showing or not: the window doesn't narrow under the mouse when the last player reserves.
   local checkboxes = checkbox_x + checkbox_width( absent_checkbox_text ) + checkbox_spacing +
-      checkbox_width( group_checkbox_text )
+      checkbox_width( group_checkbox_text ) + checkbox_spacing + announce_button_width() + close_button_intrusion
   result.width = math.max( x - column_gap, checkboxes )
 
   return result
@@ -241,6 +260,29 @@ function M.softres_list_header( parent )
     if container.on_toggle_group_items then container.on_toggle_group_items( checked ) end
   end
 
+  -- Anchored to the X itself, which is on the window rather than on this line, so the two sit
+  -- together wherever the window's width puts them. Measured once: the label never changes.
+  local announce = m.api.CreateFrame( "Button", nil, container, "UIPanelButtonTemplate" )
+  announce:SetNormalFontObject( "GameFontNormalSmall" )
+  announce:SetHighlightFontObject( "GameFontHighlightSmall" )
+  announce:SetDisabledFontObject( "GameFontDisableSmall" )
+  announce:SetHeight( announce_button_height )
+  announce:SetWidth( announce_button_width() )
+  announce:SetText( announce_button_text )
+  announce:Hide()
+
+  -- The list window is always built with its X, so the other branch is only there for a window
+  -- that wasn't: the header's own corner, level with the checkboxes.
+  if parent.close_button then
+    announce:SetPoint( "RIGHT", parent.close_button, "LEFT", 0, 0 )
+  else
+    announce:SetPoint( "RIGHT", container, "TOPRIGHT", 0, checkbox_y - checkbox_size / 2 )
+  end
+
+  announce:SetScript( "OnClick", function()
+    if container.on_announce_missing then container.on_announce_missing() end
+  end )
+
   -- Spans the headings' line only, not the checkbox above it, out to where the rows' highlights
   -- reach.
   local heading_row = container:CreateTexture( nil, "BACKGROUND" )
@@ -290,6 +332,9 @@ function M.softres_list_header( parent )
     container.on_toggle_absent = row.on_toggle_absent
     container.on_toggle_group_items = row.on_toggle_group_items
     container.on_sort = row.on_sort
+    container.on_announce_missing = row.on_announce_missing
+
+    if row.on_announce_missing then announce:Show() else announce:Hide() end
 
     local columns_layout = layout( row.widths )
     container:SetWidth( columns_layout.width )

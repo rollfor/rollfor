@@ -231,7 +231,7 @@ local function on_ready( ctx )
   local list_frame = sr.SoftResListFrame.new(
     ctx.popup_builder(), ctx.db( "list_frame" ), sr.SoftResListContentTransformer.new(),
     ctx.softres_tap( "unfiltered" ), ctx.group_roster, ctx.ace_timer, sr.SoftResListWidgets.text_width,
-    ctx.config[ sr.SoftResListFrame.rows_setting.key ], ctx.roll_modifier.preview, disabled_entries )
+    ctx.config[ sr.SoftResListFrame.rows_setting.key ], ctx.roll_modifier.preview, disabled_entries, ctx.chat )
 
   -- The list is read fresh on every redraw, so these only have to say something changed. Group
   -- changes come after on_enable's auto_match, which registered first, so names are matched by

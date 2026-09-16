@@ -126,6 +126,10 @@ local function window( reservations, cached )
   local disabled_db = {}
   local disabled_entries = DisabledEntries.new( disabled_db, name_matcher )
 
+  -- Every message announced to the group, in order.
+  local announced = {}
+  local chat = { announce = function( message ) table.insert( announced, message ) end }
+
   local ace_timer = {
     ScheduleTimer = function( _, callback, delay )
       table.insert( scheduled, { callback = callback, delay = delay } )
@@ -140,12 +144,13 @@ local function window( reservations, cached )
       return content
     end
   }, softres( reservations ), group_roster, ace_timer, text_width, function() return 15 end, preview,
-    disabled_entries )
+    disabled_entries, chat )
 
   frame.db = db
   frame.disabled_entries = disabled_entries
   frame.disabled_db = disabled_db
   frame.model = function() return model end
+  frame.announced = announced
   frame.scheduled = function() return scheduled end
 
   ---@param type string
@@ -846,6 +851,66 @@ function NotSoftRessingSpec:should_sort_them_ahead_of_reservations_by_item()
     { "Psikutas", "Not soft-ressing", "-" },
     { "Obszczymucha", "Tsunami Talisman", "Leotheras the Blind" }
   } )
+end
+
+AnnounceMissingSpec = {}
+
+function AnnounceMissingSpec:should_name_group_members_who_reserved_nothing()
+  local frame = window( { { TSUNAMI, "Psikutas" } } )
+
+  frame.show()
+  frame.header().on_announce_missing()
+
+  eq( frame.announced, { "Missing SR: Obszczymucha" } )
+end
+
+function AnnounceMissingSpec:should_name_them_alphabetically()
+  local frame = window( { { TSUNAMI, "Absentee" } } )
+
+  frame.show()
+  frame.header().on_announce_missing()
+
+  eq( frame.announced, { "Missing SR: Obszczymucha and Psikutas" } )
+end
+
+-- No callback is what hides the button.
+function AnnounceMissingSpec:should_offer_nothing_when_everybody_reserved()
+  local frame = window( { { TSUNAMI, "Psikutas" }, { ROBE, "Obszczymucha" } } )
+
+  frame.show()
+
+  eq( frame.header().on_announce_missing, nil )
+end
+
+function AnnounceMissingSpec:should_offer_nothing_when_there_is_nothing_imported()
+  local frame = window( {} )
+
+  frame.show()
+
+  eq( frame.header().on_announce_missing, nil )
+end
+
+-- Switched off is still reserved: the list doesn't call them not soft-ressing, and neither does this.
+function AnnounceMissingSpec:should_not_name_a_player_whose_reservations_are_all_switched_off()
+  local frame = window( { { TSUNAMI, "Psikutas" }, { ROBE, "Obszczymucha" } } )
+
+  frame.show()
+  frame.toggle( 1 )
+  frame.toggle( 2 )
+
+  eq( frame.header().on_announce_missing, nil )
+end
+
+-- Nobody outside the group is named: telling the raid somebody who isn't in it is missing an SR
+-- helps nobody, and the box is only about what the list shows.
+function AnnounceMissingSpec:should_ignore_the_show_absent_box()
+  local frame = window( { { TSUNAMI, "Psikutas" }, { ROBE, "Absentee" } } )
+
+  frame.show()
+  frame.header().on_toggle_absent( true )
+  frame.header().on_announce_missing()
+
+  eq( frame.announced, { "Missing SR: Obszczymucha" } )
 end
 
 BossSpec = {}

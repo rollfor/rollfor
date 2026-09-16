@@ -309,6 +309,10 @@ function M.mock_wow_api()
       ClearLines = function() end,
       NumLines = function() return 0 end,
       SetPushedTexture = function() end,
+      -- EXTENSION: the soft-res list's Announce missing button is a panel button in a small font.
+      SetNormalFontObject = function() end,
+      SetHighlightFontObject = function() end,
+      SetDisabledFontObject = function() end,
       SetText = function( self, text )
         self.text = text
         if self.OnTextChangedCallback then self.OnTextChangedCallback() end

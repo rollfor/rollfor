@@ -62,6 +62,8 @@ M.header_type = "softres_list_header"
 ---@field boss number
 
 ---@class SoftResListFrameData
+---@field on_announce_missing fun()? -- names the group members who reserved nothing in group chat;
+--- nil when there are none, or nothing has been imported for them to be missing from
 ---@field show_absent boolean
 ---@field on_toggle_absent fun( checked: boolean )
 ---@field group_items boolean
@@ -83,6 +85,7 @@ function M.new()
 
     table.insert( content, {
       type = M.header_type,
+      on_announce_missing = data.on_announce_missing,
       show_absent = data.show_absent,
       on_toggle_absent = data.on_toggle_absent,
       group_items = data.group_items,
