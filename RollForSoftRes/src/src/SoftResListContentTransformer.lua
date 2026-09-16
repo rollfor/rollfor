@@ -32,8 +32,8 @@ M.header_type = "softres_list_header"
 
 ---@class SoftResListFrameRow
 ---@field player string -- already coloured
----@field count string? -- 2x, drawn left of the item; nil for a single roll and for a player who
---- reserved nothing
+---@field count string? -- 2x, drawn left of the item; nil for a single roll, for a player who
+--- reserved nothing, and for every row while the list is ungrouped
 ---@field item_link string -- a placeholder while the client doesn't have the item, or a note for a
 --- player who reserved nothing
 ---@field item_tooltip_link TooltipItemLink?
@@ -44,13 +44,15 @@ M.header_type = "softres_list_header"
 -- the same one, so the header and the rows lay their columns out alike.
 ---@class SoftResListWidths
 ---@field player number
----@field count number -- 0 when nobody has more than one roll
+---@field count number -- 0 when nobody has more than one roll, and while the list is ungrouped
 ---@field item number
 ---@field boss number
 
 ---@class SoftResListFrameData
 ---@field show_absent boolean
 ---@field on_toggle_absent fun( checked: boolean )
+---@field group_items boolean
+---@field on_toggle_group_items fun( checked: boolean )
 ---@field sort_column SoftResListColumn
 ---@field sort_ascending boolean
 ---@field on_sort fun( column: SoftResListColumn )
@@ -70,6 +72,8 @@ function M.new()
       type = M.header_type,
       show_absent = data.show_absent,
       on_toggle_absent = data.on_toggle_absent,
+      group_items = data.group_items,
+      on_toggle_group_items = data.on_toggle_group_items,
       sort_column = data.sort_column,
       sort_ascending = data.sort_ascending,
       on_sort = data.on_sort,

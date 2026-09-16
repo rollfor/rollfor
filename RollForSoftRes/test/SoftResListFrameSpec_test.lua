@@ -263,8 +263,7 @@ function AbsentSpec:should_show_them_once_the_box_is_ticked()
   } )
 end
 
-SortSpec = {}
-
+-- Two players, five reservations, two of which are doubled.
 local sorting_fixture = {
   { TSUNAMI, "Psikutas" },
   { UNCATALOGUED, "Obszczymucha" },
@@ -272,6 +271,103 @@ local sorting_fixture = {
   { TSUNAMI, "Obszczymucha", 2 },
   { FATHOMSTONE, "Psikutas", 2 }
 }
+
+GroupItemsSpec = {}
+
+-- Grouped is the default, so a db that has never seen the checkbox lists two rolls as one 2x row.
+function GroupItemsSpec:should_group_repeated_reservations_by_default()
+  local frame = window( { { TSUNAMI, "Psikutas", 2 } } )
+
+  frame.show()
+
+  eq( frame.header().group_items, true )
+  eq( frame.rows(), {
+    { "Obszczymucha", "Not soft-ressing", "-" },
+    { "Psikutas", "2x Tsunami Talisman", "Leotheras the Blind" }
+  } )
+end
+
+function GroupItemsSpec:should_list_each_roll_on_its_own_row_once_the_box_is_unticked()
+  local frame = window( { { TSUNAMI, "Psikutas", 3 }, { FATHOMSTONE, "Psikutas" } } )
+
+  frame.show()
+  frame.model().on_toggle_group_items( false )
+
+  eq( frame.db.group_items, false )
+  eq( frame.header().group_items, false )
+  eq( frame.rows(), {
+    { "Obszczymucha", "Not soft-ressing", "-" },
+    { "Psikutas", "Fathomstone", "Hydross the Unstable" },
+    { "Psikutas", "Tsunami Talisman", "Leotheras the Blind" },
+    { "Psikutas", "Tsunami Talisman", "Leotheras the Blind" },
+    { "Psikutas", "Tsunami Talisman", "Leotheras the Blind" }
+  } )
+end
+
+-- No 2x anywhere, so the gutter the count hung in goes away and the item column is measured
+-- without it.
+function GroupItemsSpec:should_leave_no_room_for_a_count_when_ungrouped()
+  local frame = window( sorting_fixture )
+
+  frame.show()
+  eq( frame.model().widths.count, 2 )
+
+  frame.model().on_toggle_group_items( false )
+
+  eq( frame.model().widths.count, 0 )
+
+  for _, row in ipairs( frame.lines( Transformer.row_type ) ) do
+    eq( row.count, nil )
+  end
+end
+
+-- Ungrouped rows are single rolls, so the item column sorts on the name alone.
+function GroupItemsSpec:should_sort_the_item_column_by_name_when_ungrouped()
+  local frame = window( sorting_fixture )
+
+  frame.show()
+  frame.model().on_toggle_group_items( false )
+  frame.model().on_sort( "item" )
+
+  eq( frame.rows(), {
+    { "Psikutas", "Fathomstone", "Hydross the Unstable" },
+    { "Psikutas", "Fathomstone", "Hydross the Unstable" },
+    { "Obszczymucha", "Mystery Trinket", "Trash" },
+    { "Psikutas", "Robe of Hateful Echoes", "Hydross the Unstable" },
+    { "Obszczymucha", "Tsunami Talisman", "Leotheras the Blind" },
+    { "Obszczymucha", "Tsunami Talisman", "Leotheras the Blind" },
+    { "Psikutas", "Tsunami Talisman", "Leotheras the Blind" }
+  } )
+end
+
+-- Every roll is its own row, so the modifier that applies to the player's rolls is on all of them.
+function GroupItemsSpec:should_repeat_the_adjustment_on_every_row()
+  bonuses = { Psikutas = { [ TSUNAMI ] = 30 } }
+  local frame = window( { { TSUNAMI, "Psikutas", 2 } } )
+
+  frame.show()
+  frame.model().on_toggle_group_items( false )
+
+  local rows = frame.reservations()
+  eq( #rows, 2 )
+  eq( rows[ 1 ].adjustment, m.colors.white( " +30" ) )
+  eq( rows[ 2 ].adjustment, m.colors.white( " +30" ) )
+  bonuses = {}
+end
+
+function GroupItemsSpec:should_group_again_once_the_box_is_reticked()
+  local frame = window( { { TSUNAMI, "Psikutas", 2 } } )
+
+  frame.show()
+  frame.model().on_toggle_group_items( false )
+  frame.model().on_toggle_group_items( true )
+
+  eq( frame.db.group_items, true )
+  eq( #frame.reservations(), 1 )
+  eq( frame.reservations()[ 1 ].count, "2x" )
+end
+
+SortSpec = {}
 
 function SortSpec:should_order_by_player_then_boss_then_item_by_default()
   local frame = window( sorting_fixture )

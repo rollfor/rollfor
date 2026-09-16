@@ -35,8 +35,9 @@ M.rows_setting = { key = "softres_list_rows", default = 15, min = 5, max = 30 }
 -- How many times in a row the list asks the client again for items it doesn't have yet.
 local max_item_retries = 3
 
--- The default order, and what breaks ties in any other: player and item together are unique, so
--- the order is total.
+-- The default order, and what breaks ties in any other: player and item together are unique while
+-- the list is grouped, so the order is total. Ungrouped, a player's repeated reservations of one
+-- item are identical rows, and which of them comes first makes no difference.
 local tie_breaks = { "player", "boss", "item" }
 
 -- What the window can be sorted by, and the keys each column sorts on, in order. The item column
@@ -239,6 +240,8 @@ function M.new( popup_builder, db, content_transformer, softres, group_roster, a
   local function content()
     local sort_column = sort_keys[ db.sort_column ] and db.sort_column or "player"
     local sort_ascending = db.sort_ascending ~= false
+    -- Grouped unless the box was unticked: a db that has never seen the checkbox is the default.
+    local group_items = db.group_items ~= false
     local entries = {}
     local missing_link = false
     local items = softres.get_items()
@@ -274,23 +277,31 @@ function M.new( popup_builder, db, content_transformer, softres, group_roster, a
           -- the gap as well.
           local adjustment = preview( roller, item, m.Types.RollingStrategy.SoftResRoll )
 
-          table.insert( entries, {
-            row = {
-              player = player and m.colorize_player_by_class( player.name, player.class ) or m.colors.red( roller.name ),
-              item_link = link or m.colors.grey( "item:" .. item_id ),
-              item_tooltip_link = link and m.ItemUtils.get_tooltip_link( link ),
-              count = roller.rolls > 1 and string.format( "%dx", roller.rolls ) or nil,
-              adjustment = adjustment and
-                  m.colors.white( string.format( " %s%d", adjustment > 0 and "+" or "-", math.abs( adjustment ) ) ) or nil
-            },
-            boss = boss,
-            keys = {
-              player = roller.name,
-              item = link and m.ItemUtils.get_item_name( link ) or tostring( item_id ),
-              rolls = roller.rolls,
-              boss = boss_sort_key( boss )
-            }
-          } )
+          -- Grouped, the extra rolls are a 2x in front of one row. Ungrouped, they are the rows
+          -- themselves -- one per entry on the imported list, each of them a single roll, so
+          -- nothing needs the count gutter and the item column loses it.
+          local rolls = roller.rolls or 1
+          local row_count = group_items and 1 or math.max( rolls, 1 )
+
+          for _ = 1, row_count do
+            table.insert( entries, {
+              row = {
+                player = player and m.colorize_player_by_class( player.name, player.class ) or m.colors.red( roller.name ),
+                item_link = link or m.colors.grey( "item:" .. item_id ),
+                item_tooltip_link = link and m.ItemUtils.get_tooltip_link( link ),
+                count = group_items and rolls > 1 and string.format( "%dx", rolls ) or nil,
+                adjustment = adjustment and
+                    m.colors.white( string.format( " %s%d", adjustment > 0 and "+" or "-", math.abs( adjustment ) ) ) or nil
+              },
+              boss = boss,
+              keys = {
+                player = roller.name,
+                item = link and m.ItemUtils.get_item_name( link ) or tostring( item_id ),
+                rolls = group_items and rolls or 1,
+                boss = boss_sort_key( boss )
+              }
+            } )
+          end
         end
       end
     end
@@ -349,6 +360,11 @@ function M.new( popup_builder, db, content_transformer, softres, group_roster, a
       show_absent = db.show_absent == true,
       on_toggle_absent = function( checked )
         db.show_absent = checked
+        list.refresh_if_visible()
+      end,
+      group_items = group_items,
+      on_toggle_group_items = function( checked )
+        db.group_items = checked
         list.refresh_if_visible()
       end,
       sort_column = sort_column,

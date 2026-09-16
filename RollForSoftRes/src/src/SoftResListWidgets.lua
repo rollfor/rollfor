@@ -35,16 +35,21 @@ local columns = {
   { key = "boss", title = "Boss" }
 }
 
--- The checkbox above the headings, and the space between the two. Smaller than core's checkbox,
--- which is sized for an options page: this one sits over a list of small print and is set in the
--- same small font as the headings. `checkbox_x` nudges it left of the headings' edge and
--- `checkbox_y` up, without moving the headings.
+-- The checkboxes above the headings, and the space between them and the headings. Smaller than
+-- core's checkbox, which is sized for an options page: these sit over a list of small print and
+-- are set in the same small font as the headings. `checkbox_x` nudges the first left of the
+-- headings' edge and `checkbox_y` up, without moving the headings.
+--
+-- Both sit on one line rather than stacked, so the list keeps the height it had when there was
+-- only one of them.
 local checkbox_size = 14
 local checkbox_label_gap = 3
 local checkbox_gap = 4
+local checkbox_spacing = 12
 local checkbox_x = -8
 local checkbox_y = 2
-local checkbox_text = "Show players not in the group"
+local absent_checkbox_text = "Show players not in the group"
+local group_checkbox_text = "Group items"
 
 -- Blizzard's own sort arrow, at the size and with the flip the auction house uses
 -- (SortButton_UpdateArrow in Blizzard_AuctionUI).
@@ -88,6 +93,13 @@ function M.text_width( text )
   return measure:GetStringWidth()
 end
 
+-- How wide a checkbox and its label draw together.
+---@param text string
+---@return number
+local function checkbox_width( text )
+  return checkbox_size + checkbox_label_gap + M.text_width( text )
+end
+
 ---@class SoftResListColumnLayout
 ---@field x number
 ---@field width number
@@ -116,9 +128,11 @@ local function layout( widths )
     x = x + width + column_gap
   end
 
-  -- The checkbox sits over the columns, so it is what sets the width when the columns are narrower.
-  local checkbox_width = checkbox_x + checkbox_size + checkbox_label_gap + M.text_width( checkbox_text )
-  result.width = math.max( x - column_gap, checkbox_width )
+  -- The checkboxes sit over the columns, so they are what set the width when the columns are
+  -- narrower.
+  local checkboxes = checkbox_x + checkbox_width( absent_checkbox_text ) + checkbox_spacing +
+      checkbox_width( group_checkbox_text )
+  result.width = math.max( x - column_gap, checkboxes )
 
   return result
 end
@@ -166,7 +180,7 @@ local function checkbox( parent )
   return container
 end
 
--- The line above the list that is never scrolled: the checkbox, then a heading per column.
+-- The line above the list that is never scrolled: the checkboxes, then a heading per column.
 -- Clicking a heading asks the window to sort by it.
 ---@param parent table
 function M.softres_list_header( parent )
@@ -175,10 +189,20 @@ function M.softres_list_header( parent )
 
   local show_absent = checkbox( container )
   show_absent:SetPoint( "TOPLEFT", container, "TOPLEFT", checkbox_x, checkbox_y )
-  show_absent:SetText( checkbox_text )
+  show_absent:SetText( absent_checkbox_text )
 
   show_absent.on_click = function( checked )
     if container.on_toggle_absent then container.on_toggle_absent( checked ) end
+  end
+
+  -- Anchored to the first rather than to the container, so the two stay a fixed gap apart
+  -- whatever their labels measure.
+  local group_items = checkbox( container )
+  group_items:SetPoint( "LEFT", show_absent, "RIGHT", checkbox_spacing, 0 )
+  group_items:SetText( group_checkbox_text )
+
+  group_items.on_click = function( checked )
+    if container.on_toggle_group_items then container.on_toggle_group_items( checked ) end
   end
 
   -- Spans the headings' line only, not the checkbox above it, out to where the rows' highlights
@@ -226,7 +250,9 @@ function M.softres_list_header( parent )
   -- the callbacks and the layout included.
   container.SetRow = function( _, row )
     show_absent:SetChecked( row.show_absent )
+    group_items:SetChecked( row.group_items )
     container.on_toggle_absent = row.on_toggle_absent
+    container.on_toggle_group_items = row.on_toggle_group_items
     container.on_sort = row.on_sort
 
     local columns_layout = layout( row.widths )
@@ -279,8 +305,8 @@ local function place( text, parent, x, width )
   text:SetWidth( width )
 end
 
--- One reservation: player, item, boss. More than one roll shows as 2x in the gutter left of the
--- item.
+-- One reservation: player, item, boss. While the list is grouped, more than one roll shows as 2x
+-- in the gutter left of the item; ungrouped, each roll is its own row and the gutter is empty.
 ---@param parent table
 function M.softres_list_row( parent )
   local container = m.api.CreateFrame( "Frame", nil, parent )

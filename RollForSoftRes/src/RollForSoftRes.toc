@@ -1,7 +1,7 @@
 ## Interface: 20506
 ## Title: RollFor - SoftRes
 ## Author: Obszczymucha
-## Version: 1.0.0
+## Version: 1.0.1
 ## Notes: Core soft-res functionality for RollFor. Requires a provider addon to import.
 ## Dependencies: RollFor
 ## Group: RollFor
