@@ -28,8 +28,13 @@ local function fake_widget()
 
   widget.SetText = function( _, text ) widget.text = text end
   widget.SetChecked = function( _, checked ) widget.checked = checked end
+  widget.SetTabs = function( _, labels, selected )
+    widget.labels = labels
+    widget.selected = selected
+  end
   widget.SetWidth = function( _, width ) widget.width = width end
   widget.GetWidth = function() return widget.width or 0 end
+  widget.GetHeight = function() return 20 end
   widget.ClearAllPoints = function() end
   widget.SetPoint = function() end
   widget.Show = function() end
@@ -41,7 +46,7 @@ end
 local function fake_gui_elements()
   local elements = {}
 
-  for _, line_type in ipairs( { "section_header", "paragraph", "checkbox" } ) do
+  for _, line_type in ipairs( { "section_header", "paragraph", "tabs", "checkbox" } ) do
     elements[ line_type ] = fake_widget
   end
 
@@ -66,6 +71,15 @@ local function recording_popup_builder()
   popup.clear = function() popup.lines = {} end
   popup.Show = function() popup.visible = true end
   popup.IsVisible = function() return popup.visible end
+  popup.SetBackdrop = function( _, backdrop ) popup.backdrop = backdrop end
+  popup.SetBackdropColor = function() end
+  popup.SetBackdropBorderColor = function() end
+  popup.ClearAllPoints = function() popup.anchor = nil end
+  popup.SetPoint = function( _, point, relative_frame, relative_point, x, y )
+    popup.anchor = { point = point, relative_frame = relative_frame, relative_point = relative_point, x = x, y = y }
+  end
+  popup.SetWidth = function( _, width ) popup.width = width end
+  popup.SetHeight = function( _, height ) popup.height = height end
 
   -- Every setter the page chains, answering with itself.
   for _, setter in ipairs( {
@@ -127,11 +141,24 @@ local function shown_page( ctx, canvas_width )
   return page
 end
 
+-- Every line on the page, the summary and the tabs first and then what is in the panel under
+-- them, in the order they read.
+---@return table[]
+local function all_lines( page )
+  local result = {}
+
+  for _, frame in ipairs( { page.get_frame(), page.get_panel() } ) do
+    for _, entry in ipairs( frame.lines ) do table.insert( result, entry ) end
+  end
+
+  return result
+end
+
 ---@return string[]
 local function line_types( page )
   local result = {}
 
-  for _, line in ipairs( page.get_frame().lines ) do
+  for _, line in ipairs( all_lines( page ) ) do
     table.insert( result, line.line_type )
   end
 
@@ -140,7 +167,7 @@ end
 
 ---@return table
 local function line( page, line_type )
-  for _, entry in ipairs( page.get_frame().lines ) do
+  for _, entry in ipairs( all_lines( page ) ) do
     if entry.line_type == line_type then return entry.frame end
   end
 
@@ -150,21 +177,43 @@ end
 
 ---@return table
 local function checkbox( page, label )
-  for _, entry in ipairs( page.get_frame().lines ) do
+  for _, entry in ipairs( all_lines( page ) ) do
     if entry.line_type == "checkbox" and entry.frame.text == label then return entry.frame end
   end
 
   error( string.format( "There was no %q checkbox on the page.", label ), 2 )
 end
 
+---@return string[]
+local function paragraphs( page )
+  local result = {}
+
+  for _, entry in ipairs( all_lines( page ) ) do
+    if entry.line_type == "paragraph" then table.insert( result, entry.frame.text ) end
+  end
+
+  return result
+end
+
+---@param label string
+local function select_tab( page, label )
+  local tabs = line( page, "tabs" )
+
+  for index, tab_label in ipairs( tabs.labels ) do
+    if tab_label == label then return tabs.on_select( index ) end
+  end
+
+  error( string.format( "There was no %q tab on the page.", label ), 2 )
+end
+
 OptionsPageSpec = {}
 
--- Summary first, switches second: a checkbox means nothing until you know what it is you would
--- be turning on.
-function OptionsPageSpec:should_show_a_summary_then_the_switches()
+-- Summary first, tabs second, and the General tab open: a checkbox means nothing until you
+-- know what it is you would be turning on.
+function OptionsPageSpec:should_show_a_summary_then_the_general_tab()
   local page = shown_page( mock_context() )
 
-  eq( line_types( page ), { "section_header", "paragraph", "checkbox", "checkbox", "checkbox" } )
+  eq( line_types( page ), { "section_header", "paragraph", "tabs", "checkbox", "checkbox", "checkbox" } )
 end
 
 -- This addon's own copy, not something core handed over. Matched on what the pass actually does
@@ -174,6 +223,88 @@ function OptionsPageSpec:should_say_what_the_pass_does()
 
   eq( string.find( summary, "Master-loots", 1, true ) ~= nil, true )
   eq( string.find( summary, "/rf autoloot", 1, true ) ~= nil, true )
+end
+
+TabsSpec = {}
+
+function TabsSpec:should_offer_general_then_loot()
+  local tabs = line( shown_page( mock_context() ), "tabs" )
+
+  eq( tabs.labels, { "General", "Loot" } )
+  eq( tabs.selected, 1 )
+end
+
+-- The summary stays put whichever tab is open; only what is under the tabs changes.
+function TabsSpec:should_show_the_loot_tab_under_the_same_summary()
+  local page = shown_page( mock_context() )
+
+  select_tab( page, "Loot" )
+
+  eq( line_types( page ), { "section_header", "paragraph", "tabs", "paragraph" } )
+  eq( line( page, "tabs" ).selected, 2 )
+  eq( string.find( paragraphs( page )[ 1 ], "Master-loots", 1, true ) ~= nil, true )
+  eq( paragraphs( page )[ 2 ], "Hello world!" )
+end
+
+function TabsSpec:should_switch_back_to_the_general_tab()
+  local page = shown_page( mock_context() )
+
+  select_tab( page, "Loot" )
+  select_tab( page, "General" )
+
+  eq( line_types( page ), { "section_header", "paragraph", "tabs", "checkbox", "checkbox", "checkbox" } )
+  eq( checkbox( page, "Auto-loot" ).checked, true )
+end
+
+-- Coming back to the settings window finds the page on the tab it was left on.
+function TabsSpec:should_keep_the_open_tab_between_visits()
+  local page = shown_page( mock_context() )
+
+  select_tab( page, "Loot" )
+  page.show()
+
+  eq( line( page, "tabs" ).selected, 2 )
+  eq( paragraphs( page )[ 2 ], "Hello world!" )
+end
+
+-- The open tab's content is boxed in under the tabs, so it is plain which tab it belongs to.
+PanelSpec = {}
+
+function PanelSpec:should_put_the_tab_contents_in_the_bordered_panel()
+  local page = shown_page( mock_context() )
+
+  eq( #page.get_panel().lines, 3 )
+  eq( page.get_panel().backdrop.edgeFile, "Interface\\Tooltips\\UI-Tooltip-Border" )
+end
+
+function PanelSpec:should_hang_the_panel_under_the_tabs()
+  local page = shown_page( mock_context() )
+  local anchor = page.get_panel().anchor
+
+  eq( anchor.relative_frame, line( page, "tabs" ) )
+  eq( anchor.point, "TOPLEFT" )
+  eq( anchor.relative_point, "BOTTOMLEFT" )
+end
+
+-- Across the page rather than as wide as its widest setting, reaching further left than the
+-- summary, with the first tab held in from the panel's corner.
+function PanelSpec:should_span_the_page()
+  local page = shown_page( mock_context() )
+  local panel = page.get_panel()
+
+  eq( panel.anchor.x, -8 )
+  eq( panel.width, CANVAS_WIDTH - 32 + 14 )
+end
+
+-- Room above the first line and below the last, whichever tab is open.
+function PanelSpec:should_fit_its_lines()
+  local page = shown_page( mock_context() )
+
+  eq( page.get_panel().height, 12 + 20 + 5 + 20 + 5 + 20 + 12 )
+
+  select_tab( page, "Loot" )
+
+  eq( page.get_panel().height, 12 + 20 + 12 )
 end
 
 SettingsSpec = {}
@@ -218,7 +349,7 @@ ExtensionSwitchSpec = {}
 function ExtensionSwitchSpec:should_not_draw_an_enabled_switch()
   local page = shown_page( mock_context() )
 
-  for _, entry in ipairs( page.get_frame().lines ) do
+  for _, entry in ipairs( all_lines( page ) ) do
     eq( entry.frame.text ~= "Enabled", true, "The page still draws an Enabled switch." )
   end
 end

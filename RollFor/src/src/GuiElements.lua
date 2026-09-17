@@ -774,6 +774,68 @@ function M.checkbox( parent )
   return container
 end
 
+-- A row of tabs, one of them selected. Only the row: what sits under it is the caller's to
+-- draw, and a click just reports which tab was picked through on_select.
+--
+-- The buttons are the client's own TabButtonTemplate, so the tabs look like tabs everywhere
+-- else in the UI, and PanelTemplates does the selecting: a selected tab is disabled, which is
+-- also what keeps clicking it again from doing anything.
+--
+-- Buttons are kept between SetTabs calls and only ever added to, since a page is rebuilt on
+-- every visit and a frame can't be destroyed; the ones a shorter list doesn't need are hidden.
+local tab_height = 32
+
+function M.tabs( parent )
+  local container = m.api.CreateFrame( "Frame", nil, parent )
+  container:SetHeight( tab_height )
+
+  local buttons = {}
+
+  local function button_for( index )
+    if buttons[ index ] then return buttons[ index ] end
+
+    local button = m.api.CreateFrame( "Button", nil, container, "TabButtonTemplate" )
+    button:SetScript( "OnClick", function()
+      if container.on_select then container.on_select( index ) end
+    end )
+
+    buttons[ index ] = button
+    return button
+  end
+
+  ---@param labels string[]
+  ---@param selected number
+  container.SetTabs = function( _, labels, selected )
+    local width = 0
+
+    for index, label in ipairs( labels ) do
+      local button = button_for( index )
+      button:SetText( label )
+      m.api.PanelTemplates_TabResize( button, 0 )
+
+      button:ClearAllPoints()
+      button:SetPoint( "BOTTOMLEFT", container, "BOTTOMLEFT", width, 0 )
+      width = width + button:GetWidth()
+
+      if index == selected then
+        m.api.PanelTemplates_SelectTab( button )
+      else
+        m.api.PanelTemplates_DeselectTab( button )
+      end
+
+      button:Show()
+    end
+
+    for index = getn( labels ) + 1, getn( buttons ) do
+      buttons[ index ]:Hide()
+    end
+
+    container:SetWidth( width )
+  end
+
+  return container
+end
+
 -- A row of an ordered list the user rearranges: up and down, then the name.
 --
 -- The arrows lead rather than trail. They are the only part of the row anyone clicks, and a
