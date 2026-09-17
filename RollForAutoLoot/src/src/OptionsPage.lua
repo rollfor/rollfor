@@ -82,7 +82,7 @@ local indents = {
 
 -- The Loot tab's list is the whole catalogue, far longer than the page. This many rows show at
 -- once, and the mouse wheel brings the rest into view.
-local VISIBLE_ROWS = 20
+local VISIBLE_ROWS = 27
 
 -- Room between the scrollbar and the panel's right edge, clear of the border.
 local SCROLLBAR_INSET = 8

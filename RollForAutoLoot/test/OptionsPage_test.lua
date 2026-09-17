@@ -309,7 +309,7 @@ end
 local function expand_past_the_window( page )
   local index = 1
 
-  while page.get_panel().get_scroll().total <= 20 do
+  while page.get_panel().get_scroll().total <= page.get_panel().get_scroll().max_lines do
     local frame = rows( page )[ index ]
 
     if frame.expandable and not frame.expanded then frame.on_click() end
@@ -490,7 +490,8 @@ function ScrollSpec:should_draw_no_more_rows_than_fit()
 
   expand_past_the_window( page )
 
-  eq( #rows( page ), 20 )
+  -- However many rows the page asked the panel to show, rather than a copy of that number.
+  eq( #rows( page ), page.get_panel().get_scroll().max_lines )
 end
 
 -- Whichever row is at the top, it sits the panel's inset below the border, and the panel keeps
