@@ -9,12 +9,13 @@ Master-loots the items you tick straight to yourself when a corpse opens, for
 
 ## Using it
 
-`/rf autoloot` opens the item list. Tick items boss by boss, or a whole quality under
-**General**. Hold **Shift** while opening a corpse to loot it yourself instead.
+`/rf autoloot` opens this addon's page in RollFor's options window, on the **Loot** tab,
+where the item list is. Tick items boss by boss, or a whole quality under **General**. Hold
+**Shift** while opening a corpse to loot it yourself instead.
 
 ## Settings
 
-On this addon's page in RollFor's options window, and in `/rf config`:
+On the **General** tab of this addon's page in RollFor's options window, and in `/rf config`:
 
 | Setting | Default |
 |---|---|

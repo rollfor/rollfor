@@ -34,7 +34,9 @@ local function hl( text ) return m.colors.hl( text ) end
 --
 -- 7: roll_modifier.preview, so an extension can show what modifiers will add to a player's
 -- roll without a roll to apply them to.
-M.API_VERSION = 7
+--
+-- 8: open_options, so an extension's own command can bring up its page.
+M.API_VERSION = 8
 
 -- What an extension is allowed to see of RollFor. Built per extension by main.lua and
 -- handed to both phases. This is the surface we commit to across versions, so it stays
@@ -95,6 +97,8 @@ M.API_VERSION = 7
 ---@field loot_claim fun( slot: number ): string?
 ---@field on_dropped_item fun( predicate: fun( item: table ): boolean? ) -- answer false to keep an item out of the drop announcement
 ---@field on_rf_command fun( name: string, callback: fun( args: string ) ) -- a subcommand of core's /rf; args are unparsed
+-- Opens the game's options window on this extension's own page. Added in API 8.
+---@field open_options fun()
 ---@field is_enabled fun(): boolean -- this extension's own on/off state
 ---@field set_enabled fun( value: boolean ) -- toggles it, and asks for the UI reload
 ---@field title string

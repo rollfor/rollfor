@@ -1,7 +1,7 @@
 package.path = "./?.lua;" .. package.path .. ";../../RollFor/src/?.lua;../../RollFor/src/libs/?.lua;../src/?.lua;../../?.lua"
 
 -- What this addon is, from RollFor's side: a registration, one loot handler, a dropped-item
--- predicate, four settings, a window and the one function another addon may ask it. AutoLootSpec
+-- predicate, four settings, an options page and the /rf subcommand that opens it. AutoLootSpec
 -- proves the pass takes the right items; this one proves it gets installed in the right place,
 -- which is the part that has nothing to do with auto-loot and everything to do with the
 -- extension API holding up.
@@ -14,15 +14,9 @@ require( "src/modules" )
 u.multi_require_src( "DebugBuffer", "Module", "Types" )
 require( "src/Ordering" )
 local Extensions = require( "src/Extensions" )
--- on_ready builds the real window, which is built on core's.
+-- on_ready seeds the db from core's catalogue.
 require( "src/ItemUtils" )
-require( "src/GuiElements" )
-require( "src/ListPopup" )
 require( "src/DropTable" )
-require( "src/Tree" )
-require( "src/SelectionTree" )
-require( "src/SelectionTreeFrameContentTransformer" )
-require( "src/SelectionTreeFrame" )
 
 u.mock_wow_api()
 u.load_extension()
@@ -46,8 +40,8 @@ local function enable_into()
   return registered
 end
 
--- Everything on_ready reaches for. It builds the real window, so the stubs have to be real
--- enough to be built against -- but what is asserted is only what it registered.
+-- Everything on_ready reaches for. It builds the real sweep, so the stubs have to be real enough
+-- to be built against -- but what is asserted is only what it registered.
 ---@param registered table
 local function ready_context( registered )
   local Db = require( "src/Db" )
@@ -59,13 +53,11 @@ local function ready_context( registered )
     config = { auto_loot = function() return true end },
     chat = require( "test/common/mocks/Chat" ).new( require( "mocks/ChatApi" ).new(), "RAID" ),
     player_info = require( "test/common/mocks/PlayerInfo" ).new( "Psikutas", "Warrior", true, true ),
-    popup_builder = function() return require( "mocks/PopupBuilder" ).new() end,
-    selection_tree = RollFor.SelectionTree,
-    selection_tree_frame = RollFor.SelectionTreeFrame,
     get = function( name )
       if name == "loot_list" then return { get_items_by_slot = function() return {} end } end
     end,
-    on_rf_command = function( name, callback ) registered.rf_commands[ name ] = callback end
+    on_rf_command = function( name, callback ) registered.rf_commands[ name ] = callback end,
+    open_options = function() table.insert( registered.opened, registered.page_tab or "no page" ) end
   }
 end
 
@@ -91,14 +83,14 @@ function RegistrationSpec:should_offer_its_own_options_page()
   eq( type( Extensions.all()[ 1 ].options_page ), "function" )
 end
 
--- The selection tree and the window that draws it arrived on ctx with API 5, and award_policy
--- with API 6.
+-- The selection tree arrived on ctx with API 5, award_policy with API 6, and open_options with
+-- API 8.
 function RegistrationSpec:should_declare_the_api_version_the_seams_it_uses_arrived_in()
   Extensions.clear()
   auto_loot.register()
 
   eq( Extensions.all()[ 1 ].incompatible, nil )
-  eq( Extensions.all()[ 1 ].api_version, 6 )
+  eq( Extensions.all()[ 1 ].api_version, 8 )
 end
 
 -- "Auto-loot" is this addon's on/off switch, so core must not offer a second one above it. The
@@ -179,14 +171,53 @@ end
 
 SlashCommandSpec = {}
 
--- A subcommand of core's /rf rather than a command of its own, so the window opens the way every
--- other RollFor window does. on_ready registers it, because the window does not exist until then.
+-- A subcommand of core's /rf rather than a command of its own, so the list opens the way every
+-- other RollFor window does.
 function SlashCommandSpec:should_own_the_rf_autoloot_subcommand()
-  local registered = { rf_commands = {} }
+  local registered = { rf_commands = {}, opened = {} }
 
   auto_loot.on_ready( ready_context( registered ) )
 
   eq( type( registered.rf_commands[ "autoloot" ] ), "function" )
+end
+
+-- The list is on the Loot tab of this addon's options page now, not in a window of its own. The
+-- tab is picked before the window opens, so the page is drawn on it.
+function SlashCommandSpec:should_open_the_options_page_on_the_loot_tab()
+  local registered = { rf_commands = {}, opened = {} }
+  local page = RollForAutoLoot.options_page
+  RollForAutoLoot.options_page = { select_tab = function( label ) registered.page_tab = label end }
+
+  auto_loot.on_ready( ready_context( registered ) )
+  registered.rf_commands[ "autoloot" ]( "" )
+
+  RollForAutoLoot.options_page = page
+  eq( registered.opened, { "Loot" } )
+end
+
+-- The page is core's to build, and a command typed before it exists still opens the window.
+function SlashCommandSpec:should_still_open_the_options_without_a_page()
+  local registered = { rf_commands = {}, opened = {} }
+  local page = RollForAutoLoot.options_page
+  RollForAutoLoot.options_page = nil
+
+  auto_loot.on_ready( ready_context( registered ) )
+  registered.rf_commands[ "autoloot" ]( "" )
+
+  RollForAutoLoot.options_page = page
+  eq( registered.opened, { "no page" } )
+end
+
+-- What core hands back when it asks for the page is kept, so the command can reach it.
+function SlashCommandSpec:should_keep_the_page_it_built()
+  Extensions.clear()
+  auto_loot.register()
+
+  local canvas = u.modules().api.CreateFrame( "Frame" )
+  local page = Extensions.all()[ 1 ].options_page( {}, canvas ) --[[@as AutoLootOptionsPage]]
+
+  eq( RollForAutoLoot.options_page, page )
+  eq( type( page.select_tab ), "function" )
 end
 
 PublishedSurfaceSpec = {}
@@ -200,7 +231,7 @@ PublishedSurfaceSpec = {}
 -- Pinned as an absence so that nobody quietly puts it back: a shim would keep the coupling
 -- alive and answer the wrong question while doing it.
 function PublishedSurfaceSpec:should_not_publish_claims_any_more()
-  auto_loot.on_ready( ready_context( { rf_commands = {} } ) )
+  auto_loot.on_ready( ready_context( { rf_commands = {}, opened = {} } ) )
 
   eq( RollForAutoLoot.claims, nil )
 end

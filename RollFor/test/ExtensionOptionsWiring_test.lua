@@ -94,4 +94,15 @@ function ExtensionOptionsWiringSpec:should_give_the_extension_its_own_enabled_st
   eq( asked.ctx.title, "Wiring Probe" )
 end
 
+-- An extension's own command opens its own page, not RollFor's.
+function ExtensionOptionsWiringSpec:should_let_the_extension_open_its_own_page()
+  local opened = utils.modules().api.Settings.opened
+  local before = #opened
+
+  asked.ctx.open_options()
+
+  eq( #opened, before + 1 )
+  eq( opened[ #opened ], "Wiring Probe" )
+end
+
 os.exit( lu.LuaUnit.run() )

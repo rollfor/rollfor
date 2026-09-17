@@ -20,10 +20,13 @@ local m = RollFor
 -- the widget set -- so a page can be assembled out of the same pieces RollFor's own page uses
 -- rather than out of raw CreateFrame calls.
 --
--- The settings below are this addon's own, registered through ctx.config during on_enable.
--- They live in core's toggles table, so they already answer to /rf config -- but core's own
--- page renders an explicit list of its own settings and nothing else, so this page is where
--- they are actually visible.
+-- The settings on the General tab are this addon's own, registered through ctx.config during
+-- on_enable. They live in core's toggles table, so they already answer to /rf config -- but
+-- core's own page renders an explicit list of its own settings and nothing else, so this page is
+-- where they are actually visible.
+--
+-- The Loot tab is the list of what gets looted: the selection tree, drawn straight onto the
+-- page. It used to be a window of its own, and /rf autoloot now opens this tab instead.
 
 -- What this addon is for, in its own words. Core does not hold a copy: it has no use for one,
 -- since this page is the only thing that shows it.
@@ -42,7 +45,9 @@ local SIDE_INSET, TOP_INSET = 16, 16
 local paddings = {
   section_header = 13,
   paragraph = 9,
-  checkbox = 5
+  checkbox = 5,
+  -- Tight, so a raid's worth of bosses fits on the page.
+  tree_node = 2
 }
 
 -- Prose is followed by a bigger gap than the one between two controls, so the tabs
@@ -75,6 +80,13 @@ local indents = {
   tabs = TABS_INDENT - PANEL_OUTDENT
 }
 
+-- The Loot tab's list is the whole catalogue, far longer than the page. This many rows show at
+-- once, and the mouse wheel brings the rest into view.
+local VISIBLE_ROWS = 20
+
+-- Room between the scrollbar and the panel's right edge, clear of the border.
+local SCROLLBAR_INSET = 8
+
 -- How far the panel reaches up under the tabs. The open tab's artwork hangs a few pixels below
 -- the row, and it is drawn over the panel, so it covers the border's top edge beneath it and
 -- reads as joined to the panel rather than resting on it.
@@ -97,11 +109,21 @@ local TOGGLES = {
 -- stays above them: it says what the addon is for, which is true whichever tab is open.
 local TABS = { "General", "Loot" }
 
+---@class AutoLootOptionsPage
+---@field show fun()
+---@field select_tab fun( label: string )
+---@field get_frame fun(): table?
+---@field get_panel fun(): table?
+
 ---@param ctx ExtensionContext
 ---@param parent table -- the canvas RollFor registered for this page
----@return { show: fun() }
+---@return AutoLootOptionsPage
 function M.new(ctx, parent)
   local popup, panel
+
+  -- Forward declared: the panel redraws the page when it is scrolled, and rows redraw it when
+  -- they are clicked.
+  local show
 
   -- Which tab is open. Kept for as long as the page exists rather than reset on every visit,
   -- so leaving the settings window and coming back finds it where it was.
@@ -144,11 +166,16 @@ function M.new(ctx, parent)
   -- The border is set on the frame rather than through the builder, whose borders follow the
   -- user's frame style: neither a hairline nor a dialog box looks like a group of settings.
   -- Typed as a plain table because Popup doesn't declare the backdrop methods every popup has.
+  --
+  -- Only the Loot tab's rows scroll. Scrolling is just another reason to redraw, so it goes
+  -- through the same show() everything else does.
   local function create_panel()
     local result = ctx.popup_builder()
         :name("RollForAutoLootOptionsPagePanel")
         :parent(parent)
         :gui_elements(ctx.gui_elements)
+        :scrollable({ line_types = "tree_node", max_lines = VISIBLE_ROWS, right_inset = SCROLLBAR_INSET })
+        :on_scroll(function() show() end)
         :build() --[[@as table]]
 
     result:SetBackdrop(panel_backdrop)
@@ -194,15 +221,16 @@ function M.new(ctx, parent)
   -- What went into the panel on this pass, which is what its height is measured from.
   local panel_lines = {}
 
+  -- A line scrolled out of the panel is never drawn, and comes back as nil.
   local function add_panel_line(line_type, previous_type, configure)
-    table.insert(panel_lines, add_line(panel, PANEL_INSET, line_type, previous_type, configure))
+    local line = add_line(panel, PANEL_INSET, line_type, previous_type, configure)
+    if line then table.insert(panel_lines, line) end
   end
 
   -- Hangs the panel under the tabs, from just left of the summary to the page's right margin,
-  -- and as tall as what is in it. The
-  -- popup sizes itself to its lines as they are added, but to its own margins; the panel wants
-  -- the same inset below its last line as above its first, and the page's width rather than
-  -- the width of its widest line.
+  -- and as tall as what is in it. The popup sizes itself to its lines as they are added, but to
+  -- its own margins; the panel wants the same inset below its last line as above its first, and
+  -- the page's width rather than the width of its widest line.
   ---@param tabs table -- the tabs line's frame
   local function fit_panel(tabs)
     panel:ClearAllPoints()
@@ -224,6 +252,9 @@ function M.new(ctx, parent)
   -- the same question -- and core keeps the extension on, so there would be nothing for a
   -- switch to say.
   local function add_general_tab()
+    -- Nothing here scrolls. Told so, or the scrollbar the Loot tab left behind would stay up.
+    panel:set_scroll_total(0)
+
     local previous
 
     for _, toggle in ipairs(TOGGLES) do
@@ -237,10 +268,73 @@ function M.new(ctx, parent)
     end
   end
 
+  -- Built the first time the Loot tab is drawn rather than with the page: core builds the page
+  -- before on_ready, which is what seeds the db the tree is read from. Kept after that, because
+  -- which rows are expanded is written on the tree's own nodes.
+  local roots
+
+  local function tree_roots()
+    if not roots then roots = ctx.selection_tree.build(ctx.db("db"), m.DropTable.non_bosses) end
+
+    return roots
+  end
+
+  -- One row of the list, drawn the way core's selection tree window draws one: an item is its
+  -- link, anything else a coloured label. What is checked, greyed out or expandable the tree has
+  -- already decided.
+  ---@param frame table -- a tree_node widget
+  ---@param row SelectionTreeVisibleRow
+  local function configure_row(frame, row)
+    local data = row.data
+
+    frame:SetDepth(row.depth)
+    frame:SetExpandable(row.expandable, row.expanded)
+    frame:SetChecked(row.checked)
+    frame:SetDesaturated(row.desaturated)
+
+    frame.on_click = function()
+      if not row.expandable then return end
+
+      data.expanded = not data.expanded
+      show()
+    end
+
+    frame.on_check = function(checked)
+      ctx.selection_tree.set_checked(row.node, checked)
+      show()
+    end
+
+    if data.item then
+      local link = m.ItemUtils.make_link(data.id, data.item.quality, data.item.name)
+
+      frame:SetItem({
+        link = link,
+        texture = data.item.icon,
+        hover_background_color = data.hover_background_color,
+        tooltip_position = data.tooltip_position
+      }, m.ItemUtils.get_tooltip_link(link))
+    else
+      frame:SetText(data.name or "")
+      frame:SetLabelStyle(data.color, data.hover_text_color, data.hover_background_color)
+    end
+  end
+
   local function add_loot_tab()
-    add_panel_line("paragraph", nil, function(frame)
-      frame:SetText("Hello world!")
-    end)
+    local rows = ctx.selection_tree.visible_rows(tree_roots())
+
+    -- The whole list, not just what fits: the panel needs the real length to place the window
+    -- and size the scrollbar. Told before the offset is read, since a list that just got shorter
+    -- pulls the window back up.
+    panel:set_scroll_total(#rows)
+
+    -- The first row on screen sits the panel's inset below its top, whichever row that is.
+    local first_visible = panel.get_scroll().offset + 1
+
+    for index, row in ipairs(rows) do
+      add_panel_line("tree_node", index > first_visible and "tree_node" or nil, function(frame)
+        configure_row(frame, row)
+      end)
+    end
   end
 
   local tab_contents = { add_general_tab, add_loot_tab }
@@ -248,7 +342,7 @@ function M.new(ctx, parent)
   -- Rebuilt from scratch on every visit, because every checkbox on it has to show what is
   -- true now -- all of these can be changed from a slash command, or by another page,
   -- between one viewing and the next. Switching tabs takes the same path.
-  local function show()
+  show = function()
     if not popup then popup = create_popup() end
     if not panel then panel = create_panel() end
 
@@ -282,8 +376,20 @@ function M.new(ctx, parent)
     panel:Show()
   end
 
+  -- Opens the page on the named tab. Redraws straight away if the page is already on screen,
+  -- since the options window only refreshes a page when it switches to it.
+  ---@param label string
+  local function select_tab(label)
+    for index, tab_label in ipairs(TABS) do
+      if tab_label == label then selected_tab = index end
+    end
+
+    if popup and popup:IsVisible() then show() end
+  end
+
   return {
     show = show,
+    select_tab = select_tab,
     get_frame = function() return popup end,
     get_panel = function() return panel end
   }

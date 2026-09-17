@@ -9,19 +9,21 @@ local al = RollForAutoLoot
 --
 -- It needs four things from core that a decorator-only extension does not: an award policy
 -- (ctx.award_policy), a say in what gets announced as a drop (ctx.on_dropped_item), four
--- settings (ctx.config.register_toggle), and the selection tree and the window that draws it
--- (ctx.selection_tree / ctx.selection_tree_frame). The last pair arrived with API version 5.
+-- settings (ctx.config.register_toggle), and the selection tree (ctx.selection_tree), which
+-- arrived with API version 5. The tree is drawn on the Loot tab of this addon's options page.
 --
 -- API 6 is the one that matters here: core performs the award now, so this addon decides and
 -- stops. `RollForAutoLoot.claims` is gone with it -- ctx.loot_claim( slot ) answers the same
 -- question about the slot that was actually taken, which is the question it was standing in
 -- for. That is a deliberate break, and the one a third party could notice.
 --
+-- API 8 is ctx.open_options, which is how /rf autoloot brings the Loot tab up now that the list
+-- is no longer a window of its own.
+--
 -- The registration below runs at file scope: the TOC declares `## Dependencies: RollFor`,
 -- which makes the client load RollFor first and refuse to load this addon without it.
 
 local M = {}
-local m = RollFor
 
 ---@param ctx ExtensionContext
 local function on_enable( ctx )
@@ -99,20 +101,14 @@ local function on_ready( ctx )
     ctx.chat
   )
 
-  -- The tree has to exist before the window that renders it, and seeding can't happen at load
-  -- time: the SavedVariables db does not exist yet then.
-  local frame = ctx.selection_tree_frame.new( {
-    popup_builder = ctx.popup_builder(),
-    db = ctx.db( "frame" ),
-    name = "RollForAutoLootFrame",
-    title = "RollFor Auto Loot",
-    roots = ctx.selection_tree.build( db, m.DropTable.non_bosses ),
-    make_link = m.ItemUtils.make_link
-  } )
+  -- A subcommand of core's /rf. The list is on the Loot tab of this addon's options page, so
+  -- that is what it opens. The tab is picked first, so the page draws it when the window
+  -- shows it.
+  ctx.on_rf_command( "autoloot", function()
+    if al.options_page then al.options_page.select_tab( "Loot" ) end
 
-  -- A subcommand of core's /rf, so this window opens the way every other RollFor window does.
-  ctx.on_rf_command( "autoloot", function() frame.toggle() end )
-
+    ctx.open_options()
+  end )
 end
 
 function M.register()
@@ -124,7 +120,7 @@ function M.register()
   return RollFor.Extensions.register( {
     name = "auto_loot",
     title = "Auto Loot",
-    api_version = 6,
+    api_version = 8,
     default_enabled = true,
 
     -- This addon is the feature, and "Auto-loot" already says whether it does anything. A
@@ -138,7 +134,13 @@ function M.register()
     -- Core creates the canvas and asks us to fill it in. Declared here rather than from
     -- on_enable because a disabled extension still needs its page -- that page is where the
     -- switch to turn it back on lives, and on_enable does not run when we are off.
-    options_page = function( ctx, parent ) return al.OptionsPage.new( ctx, parent ) end
+    --
+    -- Kept, because /rf autoloot has to be able to tell it which tab to open on.
+    options_page = function( ctx, parent )
+      al.options_page = al.OptionsPage.new( ctx, parent )
+
+      return al.options_page
+    end
   } )
 end
 

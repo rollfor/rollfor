@@ -240,4 +240,25 @@ function InterfaceOptionsSpec:should_open_to_the_rollfor_page()
   eq( api.opened, { "RollFor_id" } )
 end
 
+-- What an extension's own command does: straight to its page rather than to RollFor's.
+function InterfaceOptionsSpec:should_open_to_an_extension_page_by_its_title()
+  local api = mock_api()
+  register_extensions( 2 )
+  local options = new_panel( api )
+
+  options.open( "Extension 2" )
+
+  eq( api.opened, { "Extension 2_id" } )
+end
+
+-- A name with no page behind it still opens the window, on the page /rf would have.
+function InterfaceOptionsSpec:should_open_to_the_rollfor_page_for_a_name_it_does_not_know()
+  local api = mock_api()
+  local options = new_panel( api )
+
+  options.open( "Nether Vortex" )
+
+  eq( api.opened, { "RollFor_id" } )
+end
+
 os.exit( lu.LuaUnit.run() )

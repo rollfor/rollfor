@@ -30,7 +30,7 @@ local M = {}
 local CATEGORY_NAME = "RollFor"
 
 ---@class InterfaceOptions
----@field open fun()
+---@field open fun( name: string? )
 ---@field get_frame fun(): table
 ---@field get_page fun( name: string ): table
 
@@ -90,8 +90,14 @@ function M.new( api, build_content )
     api.Settings.RegisterAddOnCategory( category )
   end
 
-  local function open()
-    api.Settings.OpenToCategory( category:GetID() )
+  -- To RollFor's own page, or to the page registered under `name` -- an extension's title --
+  -- when there is one.
+  ---@param name string?
+  local function open( name )
+    local page = name and pages[ name ]
+    local target = page and page.category or category
+
+    api.Settings.OpenToCategory( target:GetID() )
   end
 
   local function get_frame()

@@ -405,6 +405,10 @@ local function create_components()
 
         extension_hooks.rf_commands[ name ] = callback
       end,
+      -- Straight to this extension's page, for a command of its own that is about its settings.
+      -- Pages are registered under the title, which is what the options window lists them by.
+      -- Added in API 8.
+      open_options = function() M.interface_options.open( extension.title ) end,
       -- on_ready only: everything core builds exists by then. Named lookup rather than
       -- handing over M itself, so what extensions depend on stays visible.
       get = function( name ) return M[ name ] end
