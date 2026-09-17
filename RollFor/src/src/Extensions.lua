@@ -36,7 +36,10 @@ local function hl( text ) return m.colors.hl( text ) end
 -- roll without a roll to apply them to.
 --
 -- 8: open_options, so an extension's own command can bring up its page.
-M.API_VERSION = 8
+--
+-- 9: on_new_group, so an extension can let go of what it kept about the last group when a new
+-- one forms, at the same moment core clears its own loot records.
+M.API_VERSION = 9
 
 -- What an extension is allowed to see of RollFor. Built per extension by main.lua and
 -- handed to both phases. This is the surface we commit to across versions, so it stays
@@ -84,6 +87,9 @@ M.API_VERSION = 8
 ---@field roll_modifier { delta: fun( spec: RollDeltaSpec ): boolean, adjust: fun( spec: RollAdjustSpec ): boolean, preview: fun( player: RollingPlayer, item: Item, strategy: RollingStrategyType ): number? }
 ---@field minimap { register: fun( c: MinimapContribution ), refresh: fun() }
 ---@field on_group_changed fun( callback: fun() )
+-- Called when you go from no group to a group, after the on_group_changed hooks for the same
+-- roster update. Added in API 9.
+---@field on_new_group fun( callback: fun() )
 ---@field on_lockout_reset fun( callback: fun() )
 ---@field lockout_loss fun( describe: fun(): { count: number, noun: string }[] )
 ---@field on_loot fun( event: LootEventName, handler: LootHandler ) -- places a handler in a phase of core's loot pipeline

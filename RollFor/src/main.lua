@@ -17,7 +17,7 @@ local alid = m.AwardedLoot.awarded_loot_item_data
 -- Assigned by create_components(); declared here so describe_lockout_loss(), which runs
 -- above it, can see them.
 ---@type table<string, function[]>
-local extension_hooks = { group_changed = {}, lockout_reset = {}, lockout_loss = {}, dropped_item = {}, rf_commands = {} }
+local extension_hooks = { group_changed = {}, new_group = {}, lockout_reset = {}, lockout_loss = {}, dropped_item = {}, rf_commands = {} }
 
 -- The subcommands /rf answers itself. Named here so an extension asking for one is told no
 -- rather than silently losing to it -- see ctx.on_rf_command.
@@ -282,7 +282,7 @@ local function create_components()
 
   -- Fan-outs that used to be a hardcoded list of callees in this file. Rebuilt on every
   -- create_components() so a reload doesn't accumulate the previous run's subscribers.
-  extension_hooks = { group_changed = {}, lockout_reset = {}, lockout_loss = {}, dropped_item = {}, rf_commands = {} }
+  extension_hooks = { group_changed = {}, new_group = {}, lockout_reset = {}, lockout_loss = {}, dropped_item = {}, rf_commands = {} }
 
   ---@type MinimapContribution[]
   M.minimap_contributions = {}
@@ -359,6 +359,8 @@ local function create_components()
       set_enabled = function( value ) m.Extensions.set_enabled( extension_name, value ) end,
       title = extension.title,
       on_group_changed = function( callback ) table.insert( extension_hooks.group_changed, callback ) end,
+      -- Added in API 9.
+      on_new_group = function( callback ) table.insert( extension_hooks.new_group, callback ) end,
       on_lockout_reset = function( callback ) table.insert( extension_hooks.lockout_reset, callback ) end,
       lockout_loss = function( describe ) table.insert( extension_hooks.lockout_loss, describe ) end,
       -- Placed into a phase of core's loot pipeline. A handler says *when* it runs -- Loot,
@@ -716,9 +718,17 @@ local function subscribe_for_component_events()
     end
   end )
 
+  -- A new group is the one moment core and every extension agree the last group is over, so they
+  -- all hear it from the same event: core's loot records go, and so does whatever an extension
+  -- kept about the group before. It arrives on the roster update that made the group, after the
+  -- on_group_changed hooks have already seen the new roster.
   M.new_group_event.subscribe( function()
     M.awarded_loot.clear()
     M.dropped_loot.clear()
+
+    for _, callback in ipairs( extension_hooks.new_group ) do
+      callback()
+    end
   end )
 
   -- A new lockout is a new set of bosses to kill, so last week's record is not just

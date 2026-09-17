@@ -1,7 +1,7 @@
 ## Interface: 20506
 ## Title: RollFor
 ## Author: Obszczymucha
-## Version: 5.0.7-beta1
+## Version: 5.0.8-beta1
 ## Notes: An automated item roller
 ## SavedVariables: RollForDb
 ## SavedVariablesPerCharacter: RollForCharDb
